@@ -31,6 +31,8 @@ ADJUST_SYSTEM = (
     "Always respond with valid JSON only – no markdown, no explanation outside the JSON."
 )
 
+_JAPANESE = "japanese"
+
 
 def _chat(client: OpenAI, model: str, system: str, user: str) -> str:
     """Send a single-turn chat request and return the assistant text."""
@@ -140,9 +142,9 @@ def translate_text(
     }
 
     # Attach furigana for any Japanese text
-    if source_lang.lower() == "japanese":
+    if source_lang.lower() == _JAPANESE:
         result["source_furigana"] = generate_furigana(text)
-    if target_lang.lower() == "japanese":
+    if target_lang.lower() == _JAPANESE:
         result["target_furigana"] = generate_furigana(translation)
 
     return result
@@ -199,9 +201,9 @@ def adjust_translation(
     }
 
     # Attach furigana for any Japanese text
-    if source_lang.lower() == "japanese":
+    if source_lang.lower() == _JAPANESE:
         result["source_furigana"] = generate_furigana(original)
-    if target_lang.lower() == "japanese":
+    if target_lang.lower() == _JAPANESE:
         result["target_furigana"] = generate_furigana(translation)
 
     return result

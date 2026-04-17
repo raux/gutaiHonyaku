@@ -8,6 +8,9 @@
  *
  * Also exports the pure helper functions `tokenizeWords` and `buildAlignment`
  * so SectionPanel can use them without importing a separate utils file.
+ *
+ * When a `furigana` prop is provided (an array of {text, reading} segments),
+ * kanji are rendered with ruby annotations showing their hiragana readings.
  */
 
 // ---------------------------------------------------------------------------
@@ -165,6 +168,65 @@ export function replaceWordAtIndex(text, targetWordIdx, newWord) {
 }
 
 // ---------------------------------------------------------------------------
+// Furigana helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Group character-level tokens into furigana segments.
+ *
+ * Each segment is { reading: string, tokens: token[] }.
+ * Tokens keep their original wordIdx so alignment still works.
+ *
+ * @param {Array} tokens   – output of tokenizeWords()
+ * @param {Array} furigana – array of { text: string, reading: string }
+ * @returns {Array<{reading: string, tokens: Array}>}
+ */
+function groupTokensByFurigana(tokens, furigana) {
+  if (!furigana || furigana.length === 0) return null;
+
+  const groups = [];
+  let tokenIdx = 0;
+
+  for (const segment of furigana) {
+    const group = { reading: segment.reading, tokens: [] };
+    let remaining = segment.text;
+
+    while (remaining.length > 0 && tokenIdx < tokens.length) {
+      const tok = tokens[tokenIdx];
+      const tokText = tok.text;
+
+      // Check if this token's text starts the remaining segment text
+      if (remaining.startsWith(tokText)) {
+        group.tokens.push(tok);
+        remaining = remaining.slice(tokText.length);
+        tokenIdx++;
+      } else if (/^\s+$/.test(tokText) && !/^\s/.test(remaining)) {
+        // Whitespace token that doesn't belong to this segment — push the
+        // current group and emit whitespace separately.
+        break;
+      } else {
+        // Mismatch — just push and advance to avoid infinite loop
+        group.tokens.push(tok);
+        remaining = remaining.slice(tokText.length);
+        tokenIdx++;
+      }
+    }
+
+    if (group.tokens.length > 0) {
+      groups.push(group);
+    }
+  }
+
+  // Any remaining tokens that weren't covered by furigana segments
+  while (tokenIdx < tokens.length) {
+    groups.push({ reading: '', tokens: [tokens[tokenIdx]] });
+    tokenIdx++;
+  }
+
+  return groups;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -179,6 +241,7 @@ export function replaceWordAtIndex(text, targetWordIdx, newWord) {
  *   onHoverWord        {(idx|null)=>void}
  *   onEditWord         {(wordIdx, currentText)=>void}
  *   placeholder        {string}
+ *   furigana           {Array<{text:string,reading:string}>|null} – optional furigana data
  */
 export default function WordDisplay({
   text,
@@ -188,6 +251,7 @@ export default function WordDisplay({
   onHoverWord,
   onEditWord,
   placeholder = 'Translation will appear here…',
+  furigana = null,
 }) {
   if (!text) {
     return (
@@ -210,57 +274,84 @@ export default function WordDisplay({
     aligned.forEach(i => highlightedSet.add(i));
   }
 
+  /** Render a single token span (shared by both plain and furigana paths). */
+  const renderToken = (tok, idx) => {
+    if (!tok.isWord) {
+      return (
+        <span key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+          {tok.text}
+        </span>
+      );
+    }
+
+    const wi = tok.wordIdx;
+    const isHighlighted = highlightedSet.has(wi);
+    const hasAlignment =
+      side === 'src'
+        ? (srcToTgt[wi]?.length > 0)
+        : (tgtToSrc[wi]?.length > 0);
+
+    let colourCls;
+    if (isHighlighted) {
+      colourCls =
+        side === 'src'
+          ? 'bg-amber-400 text-slate-900'
+          : 'bg-teal-400 text-slate-900';
+    } else if (hasAlignment) {
+      colourCls =
+        side === 'src'
+          ? 'text-slate-100 hover:bg-blue-800/60'
+          : 'text-slate-100 hover:bg-emerald-800/60';
+    } else {
+      colourCls = 'text-slate-400 hover:text-slate-200';
+    }
+
+    return (
+      <span
+        key={idx}
+        className={`cursor-pointer rounded px-0.5 transition-colors duration-100 ${colourCls}`}
+        onMouseEnter={() => onHoverWord?.(wi)}
+        onMouseLeave={() => onHoverWord?.(null)}
+        onDoubleClick={() => onEditWord?.(wi, tok.text)}
+        title={hasAlignment ? 'Double-click to edit' : undefined}
+      >
+        {tok.text}
+      </span>
+    );
+  };
+
+  // ── Furigana path: group tokens into ruby-annotated segments ───────────
+  const groups = groupTokensByFurigana(tokens, furigana);
+
+  if (groups) {
+    return (
+      <div className="p-4 leading-loose text-sm select-text furigana-display">
+        {groups.map((group, gi) => {
+          const inner = group.tokens.map((tok, ti) =>
+            renderToken(tok, `${gi}-${ti}`),
+          );
+
+          if (group.reading) {
+            return (
+              <ruby key={gi} className="furigana-ruby">
+                {inner}
+                <rp>(</rp>
+                <rt className="text-slate-400 font-normal">{group.reading}</rt>
+                <rp>)</rp>
+              </ruby>
+            );
+          }
+          // No reading — render tokens directly
+          return <span key={gi}>{inner}</span>;
+        })}
+      </div>
+    );
+  }
+
+  // ── Plain path (no furigana) ───────────────────────────────────────────
   return (
     <div className="p-4 leading-relaxed text-sm select-text">
-      {tokens.map((tok, idx) => {
-        if (!tok.isWord) {
-          // Preserve whitespace characters exactly
-          return (
-            <span key={idx} style={{ whiteSpace: 'pre-wrap' }}>
-              {tok.text}
-            </span>
-          );
-        }
-
-        const wi = tok.wordIdx;
-        const isHighlighted = highlightedSet.has(wi);
-        const hasAlignment  =
-          side === 'src'
-            ? (srcToTgt[wi]?.length > 0)
-            : (tgtToSrc[wi]?.length > 0);
-
-        // Colour scheme:
-        //   highlighted (externally hovered pair) → amber for src, teal for tgt
-        //   has alignment but not highlighted      → subtle hover tint
-        //   no alignment data                      → muted text, no hover tint
-        let colourCls;
-        if (isHighlighted) {
-          colourCls =
-            side === 'src'
-              ? 'bg-amber-400 text-slate-900'
-              : 'bg-teal-400 text-slate-900';
-        } else if (hasAlignment) {
-          colourCls =
-            side === 'src'
-              ? 'text-slate-100 hover:bg-blue-800/60'
-              : 'text-slate-100 hover:bg-emerald-800/60';
-        } else {
-          colourCls = 'text-slate-400 hover:text-slate-200';
-        }
-
-        return (
-          <span
-            key={idx}
-            className={`cursor-pointer rounded px-0.5 transition-colors duration-100 ${colourCls}`}
-            onMouseEnter={() => onHoverWord?.(wi)}
-            onMouseLeave={() => onHoverWord?.(null)}
-            onDoubleClick={() => onEditWord?.(wi, tok.text)}
-            title={hasAlignment ? 'Double-click to edit' : undefined}
-          >
-            {tok.text}
-          </span>
-        );
-      })}
+      {tokens.map((tok, idx) => renderToken(tok, idx))}
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default function AdjustChat({
         { role: 'assistant', content: result.translation, explanation: result.explanation },
       ]);
 
-      onAdjusted?.(result.translation, result.pairs);
+      onAdjusted?.(result.translation, result.pairs, result.source_furigana, result.target_furigana);
     } catch (err) {
       const detail   = err?.response?.data?.detail || err?.message || 'Unknown error';
       const isOffline =

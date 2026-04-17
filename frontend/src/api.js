@@ -80,6 +80,17 @@ export async function adjustTranslation(
   return data;
 }
 
+/**
+ * Fetch furigana (reading) annotations for Japanese text.
+ *
+ * @param {string} text – Japanese text to annotate
+ * @returns {Promise<Array<{text: string, reading: string}>>}
+ */
+export async function fetchFurigana(text) {
+  const { data } = await api.post('/furigana', { text });
+  return data.furigana || [];
+}
+
 // ---------------------------------------------------------------------------
 // Health / status
 // ---------------------------------------------------------------------------

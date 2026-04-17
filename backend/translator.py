@@ -7,6 +7,14 @@ import re
 
 from openai import OpenAI
 
+try:
+    import pykakasi
+
+    _kakasi = pykakasi.kakasi()
+    _HAS_PYKAKASI = True
+except ImportError:  # pragma: no cover
+    _HAS_PYKAKASI = False
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -22,6 +30,8 @@ ADJUST_SYSTEM = (
     "Adjust translations based on user instructions while preserving accuracy. "
     "Always respond with valid JSON only – no markdown, no explanation outside the JSON."
 )
+
+_JAPANESE = "japanese"
 
 
 def _chat(client: OpenAI, model: str, system: str, user: str) -> str:
@@ -60,6 +70,29 @@ def extract_json(text: str) -> dict:
     if match:
         return json.loads(match.group())
     raise ValueError(f"No JSON object found in LLM response: {text[:300]}")
+
+
+def _has_kanji(text: str) -> bool:
+    """Return True if *text* contains at least one CJK Unified Ideograph."""
+    return any("\u4e00" <= ch <= "\u9fff" or "\u3400" <= ch <= "\u4dbf" for ch in text)
+
+
+def generate_furigana(text: str) -> list[dict]:
+    """Generate furigana (reading) annotations for Japanese text.
+
+    Returns a list of ``{"text": str, "reading": str}`` objects.
+    ``reading`` is non-empty only for segments containing kanji.
+    """
+    if not _HAS_PYKAKASI or not text or not text.strip():
+        return []
+
+    segments: list[dict] = []
+    for item in _kakasi.convert(text):
+        orig = item["orig"]
+        hira = item["hira"]
+        reading = hira if _has_kanji(orig) else ""
+        segments.append({"text": orig, "reading": reading})
+    return segments
 
 
 def translate_text(
@@ -101,10 +134,20 @@ def translate_text(
     logger.debug("Raw translation response: %s", raw[:500])
 
     parsed = extract_json(raw)
-    return {
-        "translation": parsed.get("translation", ""),
+
+    translation = parsed.get("translation", "")
+    result: dict = {
+        "translation": translation,
         "pairs": parsed.get("pairs", []),
     }
+
+    # Attach furigana for any Japanese text
+    if source_lang.lower() == _JAPANESE:
+        result["source_furigana"] = generate_furigana(text)
+    if target_lang.lower() == _JAPANESE:
+        result["target_furigana"] = generate_furigana(translation)
+
+    return result
 
 
 def adjust_translation(
@@ -149,8 +192,18 @@ def adjust_translation(
     logger.debug("Raw adjust response: %s", raw[:500])
 
     parsed = extract_json(raw)
-    return {
-        "translation": parsed.get("translation", ""),
+
+    translation = parsed.get("translation", "")
+    result: dict = {
+        "translation": translation,
         "explanation": parsed.get("explanation", ""),
         "pairs": parsed.get("pairs", []),
     }
+
+    # Attach furigana for any Japanese text
+    if source_lang.lower() == _JAPANESE:
+        result["source_furigana"] = generate_furigana(original)
+    if target_lang.lower() == _JAPANESE:
+        result["target_furigana"] = generate_furigana(translation)
+
+    return result

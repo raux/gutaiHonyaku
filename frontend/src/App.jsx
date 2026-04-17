@@ -30,19 +30,6 @@ const SECTIONS = [
 const LANGUAGES = [
   'English',
   'Japanese',
-  'Chinese (Simplified)',
-  'Chinese (Traditional)',
-  'Korean',
-  'French',
-  'German',
-  'Spanish',
-  'Italian',
-  'Portuguese',
-  'Russian',
-  'Arabic',
-  'Hindi',
-  'Thai',
-  'Vietnamese',
 ];
 
 // ---------------------------------------------------------------------------

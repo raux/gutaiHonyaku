@@ -46,6 +46,10 @@ const SectionPanel = forwardRef(function SectionPanel(
   const [pairs,   setPairs]   = useState([]);
   const [alignment, setAlignment] = useState({ srcToTgt: {}, tgtToSrc: {} });
 
+  // Furigana data for Japanese text (source or target)
+  const [srcFurigana, setSrcFurigana] = useState(null);
+  const [tgtFurigana, setTgtFurigana] = useState(null);
+
   // 'input'   → show source as editable textarea
   // 'aligned' → show source as interactive word spans (after translation)
   const [sourceMode, setSourceMode] = useState('input');
@@ -91,6 +95,8 @@ const SectionPanel = forwardRef(function SectionPanel(
       setTgtText(result.translation);
       setPairs(result.pairs || []);
       setAlignment(buildAlignment(srcText, result.translation, result.pairs || []));
+      setSrcFurigana(result.source_furigana || null);
+      setTgtFurigana(result.target_furigana || null);
       setSourceMode('aligned');
       setSrcStale(false);
     } catch (err) {
@@ -146,11 +152,13 @@ const SectionPanel = forwardRef(function SectionPanel(
 
   // ── Adjusted by AdjustChat ──────────────────────────────────────────────
 
-  const handleAdjusted = (newTranslation, newPairs) => {
+  const handleAdjusted = (newTranslation, newPairs, newSrcFurigana, newTgtFurigana) => {
     const usedPairs = newPairs?.length ? newPairs : pairs;
     setTgtText(newTranslation);
     setPairs(usedPairs);
     setAlignment(buildAlignment(srcText, newTranslation, usedPairs));
+    if (newSrcFurigana) setSrcFurigana(newSrcFurigana);
+    if (newTgtFurigana) setTgtFurigana(newTgtFurigana);
   };
 
   // ── Derived helpers ─────────────────────────────────────────────────────
@@ -242,6 +250,7 @@ const SectionPanel = forwardRef(function SectionPanel(
                 onHoverWord={setHoveredSrcIdx}
                 onEditWord={(wi, txt) => openEditModal('src', wi, txt)}
                 placeholder=""
+                furigana={srcFurigana}
               />
             )}
           </div>
@@ -279,6 +288,7 @@ const SectionPanel = forwardRef(function SectionPanel(
               onHoverWord={setHoveredTgtIdx}
               onEditWord={(wi, txt) => openEditModal('tgt', wi, txt)}
               placeholder="Translation will appear here…"
+              furigana={tgtFurigana}
             />
           </div>
         </div>

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel
 
-from translator import translate_text, adjust_translation
+from translator import translate_text, adjust_translation, generate_furigana
 
 load_dotenv()
 
@@ -98,6 +98,10 @@ class AdjustRequest(BaseModel):
     lm_studio_url: str | None = None
     model: str | None = None
     provider: str | None = "lm_studio"
+
+
+class FuriganaRequest(BaseModel):
+    text: str
 
 
 # ---------------------------------------------------------------------------
@@ -191,3 +195,10 @@ async def adjust(req: AdjustRequest):
                 ),
             )
         raise HTTPException(status_code=500, detail=msg)
+
+
+@app.post("/furigana")
+async def furigana(req: FuriganaRequest):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="text must not be empty")
+    return {"furigana": generate_furigana(req.text)}

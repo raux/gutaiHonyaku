@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Furigana / ruby annotation styles */
+.furigana-display ruby {
+  ruby-position: over;
+}
+
+.furigana-display rt {
+  font-size: 0.55em;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}

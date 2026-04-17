@@ -1,7 +1,7 @@
 """test_translator.py – Unit tests for gutaiHonyaku translator module."""
 import json
 import pytest
-from backend.translator import extract_json, translate_text, adjust_translation
+from backend.translator import extract_json, translate_text, adjust_translation, generate_furigana
 
 
 # ---------------------------------------------------------------------------
@@ -178,3 +178,93 @@ def test_adjust_translation_missing_explanation():
         client, "test-model", "Source", "Translation", "instruction", "English", "French"
     )
     assert result["explanation"] == ""
+
+
+# ---------------------------------------------------------------------------
+# generate_furigana tests
+# ---------------------------------------------------------------------------
+
+def test_generate_furigana_kanji():
+    """Kanji segments should have a non-empty hiragana reading."""
+    segments = generate_furigana("漢字")
+    assert len(segments) >= 1
+    # At least one segment should have a non-empty reading for kanji
+    readings = [s for s in segments if s["reading"]]
+    assert len(readings) >= 1
+
+
+def test_generate_furigana_hiragana_only():
+    """Pure hiragana text should have empty readings (no furigana needed)."""
+    segments = generate_furigana("ひらがな")
+    assert len(segments) >= 1
+    for seg in segments:
+        assert seg["reading"] == ""
+
+
+def test_generate_furigana_empty():
+    """Empty text returns an empty list."""
+    assert generate_furigana("") == []
+    assert generate_furigana("   ") == []
+
+
+def test_generate_furigana_mixed():
+    """Mixed kanji + hiragana text: only kanji portions have readings."""
+    segments = generate_furigana("東京は美しい")
+    assert len(segments) >= 1
+    texts_joined = "".join(s["text"] for s in segments)
+    assert texts_joined == "東京は美しい"
+    # At least one segment should have a reading (東京, 美しい)
+    readings = [s for s in segments if s["reading"]]
+    assert len(readings) >= 1
+
+
+# ---------------------------------------------------------------------------
+# translate_text furigana integration tests
+# ---------------------------------------------------------------------------
+
+def test_translate_text_includes_target_furigana():
+    """When target_lang is Japanese, result should include target_furigana."""
+    client = DummyClient(TRANSLATION_RESPONSE)
+    result = translate_text(client, "test-model", "Hello world", "English", "Japanese")
+    assert "target_furigana" in result
+    assert isinstance(result["target_furigana"], list)
+
+
+def test_translate_text_includes_source_furigana():
+    """When source_lang is Japanese, result should include source_furigana."""
+    jp_response = json.dumps({
+        "translation": "Hello world",
+        "pairs": [
+            {"src": "こんにちは", "tgt": "Hello"},
+            {"src": "世界", "tgt": "world"},
+        ],
+    })
+    client = DummyClient(jp_response)
+    result = translate_text(client, "test-model", "こんにちは世界", "Japanese", "English")
+    assert "source_furigana" in result
+    assert isinstance(result["source_furigana"], list)
+
+
+def test_translate_text_no_furigana_for_non_japanese():
+    """When neither language is Japanese, no furigana fields should be present."""
+    response = json.dumps({"translation": "Bonjour", "pairs": []})
+    client = DummyClient(response)
+    result = translate_text(client, "test-model", "Hello", "English", "French")
+    assert "source_furigana" not in result
+    assert "target_furigana" not in result
+
+
+def test_adjust_translation_includes_furigana():
+    """adjust_translation includes furigana when target is Japanese."""
+    client = DummyClient(ADJUST_RESPONSE)
+    result = adjust_translation(
+        client,
+        "test-model",
+        "Hello world",
+        "こんにちは世界",
+        "add emphasis",
+        "English",
+        "Japanese",
+    )
+    assert "target_furigana" in result
+    assert isinstance(result["target_furigana"], list)

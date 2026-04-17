@@ -2,11 +2,11 @@
  * SectionPanel.jsx – One document section with source + word-aligned translation.
  *
  * Layout:
+ *   │  💬 Adjust Translation  (collapsible)              │
  *   ┌─────────────────────────┬─────────────────────────┐
  *   │  SOURCE  (src lang)     │  TRANSLATION (tgt lang) │
  *   │  [textarea / word view] │  [word spans]           │
  *   └─────────────────────────┴─────────────────────────┘
- *   │  💬 Adjust Translation  (collapsible)              │
  *
  * Source starts as an editable textarea.  After a successful translation the
  * source switches to a word-span view so both sides can participate in the
@@ -171,6 +171,32 @@ const SectionPanel = forwardRef(function SectionPanel(
   return (
     <div className="flex flex-col h-full">
 
+      {/* ── Adjust-translation chat ────────────────────────────────────── */}
+      <div className="flex-shrink-0 border-b border-slate-700">
+        <button
+          onClick={() => setShowChat(prev => !prev)}
+          className="w-full flex items-center justify-between px-4 py-2 bg-slate-800
+                     hover:bg-slate-700/60 text-xs text-slate-400 hover:text-slate-200
+                     transition-colors"
+        >
+          <span>💬 Adjust Translation</span>
+          <span>{showChat ? '▲' : '▼'}</span>
+        </button>
+
+        {showChat && (
+          <AdjustChat
+            sectionName={section.name}
+            original={srcText}
+            translation={tgtText}
+            srcLang={srcLang}
+            tgtLang={tgtLang}
+            lmConfig={lmConfig}
+            onAdjusted={handleAdjusted}
+            disabled={!tgtText}
+          />
+        )}
+      </div>
+
       {/* ── Translation panels ─────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
 
@@ -302,32 +328,6 @@ const SectionPanel = forwardRef(function SectionPanel(
           {error}
         </div>
       )}
-
-      {/* ── Adjust-translation chat ────────────────────────────────────── */}
-      <div className="flex-shrink-0 border-t border-slate-700">
-        <button
-          onClick={() => setShowChat(prev => !prev)}
-          className="w-full flex items-center justify-between px-4 py-2 bg-slate-800
-                     hover:bg-slate-700/60 text-xs text-slate-400 hover:text-slate-200
-                     transition-colors"
-        >
-          <span>💬 Adjust Translation</span>
-          <span>{showChat ? '▼' : '▲'}</span>
-        </button>
-
-        {showChat && (
-          <AdjustChat
-            sectionName={section.name}
-            original={srcText}
-            translation={tgtText}
-            srcLang={srcLang}
-            tgtLang={tgtLang}
-            lmConfig={lmConfig}
-            onAdjusted={handleAdjusted}
-            disabled={!tgtText}
-          />
-        )}
-      </div>
 
       {/* ── Word-edit modal ────────────────────────────────────────────── */}
       {editModal && (

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel
 
-from translator import translate_text, adjust_translation, generate_furigana
+from backend.translator import translate_text, adjust_translation, generate_furigana
 
 load_dotenv()
 

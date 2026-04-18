@@ -8,7 +8,7 @@ echo "🚀 Starting gutaiHonyaku application..."
 # Function to cleanup processes on exit
 cleanup() {
     echo ""
-    echo "🛑 Shutting down backend and frontend..."
+    echo "🛑 Shutting down server..."
     kill $(jobs -p) 2>/dev/null || true
     exit
 }
@@ -22,26 +22,29 @@ if [ ! -d ".venv" ]; then
     python3 -m venv .venv
 fi
 
-# Start Backend in the background
-echo "⚙️  Starting backend (FastAPI) on http://localhost:8000..."
 source .venv/bin/activate
+
+# Build the frontend if node_modules exist
+if [ -d "frontend/node_modules" ]; then
+    echo "🔨 Building frontend..."
+    cd frontend
+    npm run build
+    cd ..
+else
+    echo "⚠️  frontend/node_modules not found – run 'cd frontend && npm install' first."
+    echo "   Skipping frontend build; API-only mode."
+fi
+
+# Start the unified server
+echo "⚙️  Starting gutaiHonyaku server on http://localhost:8000..."
 uvicorn backend.main:app --reload --port 8000 &
-BACKEND_PID=$!
-
-# Wait a moment for backend to initialize
-sleep 2
-
-# Start Frontend in the background
-echo "🌐 Starting frontend (Vite) on http://localhost:5173..."
-cd frontend
-npm run dev &
-FRONTEND_PID=$!
-cd ..
+SERVER_PID=$!
 
 echo ""
-echo "✅ Both services are starting up!"
+echo "✅ Server is starting up!"
 echo "⚠️  REMINDER: Ensure your LLM server (LM Studio or Ollama) is running."
-echo "Press Ctrl+C to stop both services."
+echo "🌐 Open http://localhost:8000 in your browser."
+echo "Press Ctrl+C to stop the server."
 echo ""
 
 # Keep the script running so it can catch the signal

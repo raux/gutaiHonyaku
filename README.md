@@ -91,19 +91,15 @@ pip install -r backend/requirements.txt
 # 3. Frontend setup
 cd frontend
 npm install
+npm run build
 cd ..
 
 # 4. Start LM Studio or Ollama with a model loaded
 
-# 5. Start backend (in one terminal)
-cd backend
-uvicorn main:app --reload --port 8000
+# 5. Start the server
+uvicorn backend.main:app --reload --port 8000
 
-# 6. Start frontend (in another terminal)
-cd frontend
-npm run dev
-
-# 7. Open http://localhost:5173 and start translating!
+# 6. Open http://localhost:8000 and start translating!
 ```
 
 **First time?** Follow the detailed [Installation](#installation) and [Running the Application](#running-the-application) sections below.
@@ -161,13 +157,16 @@ LM_STUDIO_MODEL=                              # leave blank → first available 
 ```bash
 cd frontend
 npm install
+npm run build
 ```
+
+This produces the static assets in `frontend/dist/`, which the FastAPI backend will serve automatically.
 
 ---
 
 ## Running the Application
 
-You need **three** things running at the same time: the LLM server, the FastAPI backend, and the Vite dev server.
+You need **two** things running at the same time: the LLM server and the gutaiHonyaku server.
 
 ### Step 1 – Start your LLM server
 
@@ -179,26 +178,19 @@ ollama serve          # starts on http://localhost:11434
 ollama pull llama3    # download a model if you haven't already
 ```
 
-### Step 2 – Start the backend
+### Step 2 – Start the server
 
 ```bash
 # From the repo root (with your venv active)
-cd backend
-uvicorn main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 8000
 ```
 
-The API is now at `http://localhost:8000`.  
+The application is now at `http://localhost:8000`.  
 Check it is alive: `curl http://localhost:8000/health`
 
-### Step 3 – Start the frontend
+Open **http://localhost:8000** in your browser.
 
-```bash
-# In a second terminal, from the repo root
-cd frontend
-npm run dev
-```
-
-Open **http://localhost:5173** in your browser.
+> **💡 Development mode:** If you prefer Vite's hot-reload during frontend development, you can still run `cd frontend && npm run dev` in a separate terminal. The Vite dev server proxies API requests to port 8000 automatically.
 
 ---
 
@@ -361,7 +353,7 @@ gutaiHonyaku/
 │   │       ├── WordDisplay.jsx            # Interactive word spans + alignment algorithm
 │   │       └── AdjustChat.jsx             # Per-section adjustment chat
 │   ├── package.json
-│   └── vite.config.js    # Proxies /translate & /adjust → http://localhost:8000
+│   └── vite.config.js    # Proxies API calls in dev mode; build outputs to dist/
 └── tests/
     └── test_translator.py
 ```
@@ -375,7 +367,9 @@ cd frontend
 npm run build          # outputs to frontend/dist/
 ```
 
-Serve `frontend/dist/` with any static file server (nginx, Caddy, etc.) and point your backend at the same origin, or configure a reverse proxy.
+The FastAPI backend automatically serves the built frontend from `frontend/dist/`. Simply run `uvicorn backend.main:app --port 8000` and the full application is available at `http://localhost:8000`.
+
+For a reverse-proxy setup (nginx, Caddy, etc.), point the proxy at the single uvicorn process.
 
 ---
 
@@ -387,7 +381,7 @@ Serve `frontend/dist/` with any static file server (nginx, Caddy, etc.) and poin
 | Model dropdown is empty | Click **🔌 Connect** – the models list is fetched on connection |
 | Translation returns garbled JSON | Try a different (larger) model; some small models don't reliably follow JSON instructions |
 | `uvicorn: command not found` | Make sure your virtual environment is activated and `pip install -r backend/requirements.txt` has been run |
-| Frontend can't reach backend | Ensure the backend is on port 8000; the Vite proxy is hard-coded to `http://localhost:8000` |
+| Frontend shows 404 / blank page | Run `cd frontend && npm run build` to generate the static files in `frontend/dist/` |
 
 ---
 

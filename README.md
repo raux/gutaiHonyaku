@@ -65,11 +65,12 @@ Type (or paste) source text into any of the five document sections, click **Tran
 | Feature | Description |
 |---|---|
 | **5 document sections** | Title · Introduction · Background & Main Text · Discussion · Conclusion |
-| **Any language pair** | 15 languages built-in; source ⇄ target swap with one click |
+| **Any language pair** | English ⇄ Japanese built-in; source ⇄ target swap with one click |
 | **Word-level alignment** | Hover a word on either side to highlight the aligned word(s) on the other side |
 | **Inline word editing** | Double-click any word in source or translation to replace it |
 | **Adjust Translation chat** | Per-section chat panel: type an instruction and the LLM updates the translation |
 | **Translate All** | One button translates every non-empty section sequentially |
+| **Furigana (振り仮名)** | Automatic ruby annotations for Japanese kanji, showing hiragana readings above characters |
 | **Local LLM** | Works with [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com) – no data leaves your machine |
 
 ---
@@ -330,7 +331,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-All 13 tests cover `extract_json`, `translate_text`, and `adjust_translation` with mock LLM clients.
+All 21 tests cover `extract_json`, `translate_text`, `adjust_translation`, and `generate_furigana` with mock LLM clients.
 
 ---
 
@@ -339,23 +340,31 @@ All 13 tests cover `extract_json`, `translate_text`, and `adjust_translation` wi
 ```
 gutaiHonyaku/
 ├── backend/
-│   ├── main.py           # FastAPI app – /translate, /adjust, /health, /status
-│   ├── translator.py     # LLM chat wrapper + word-alignment JSON extraction
+│   ├── main.py           # FastAPI app – /translate, /adjust, /furigana, /health, /status
+│   ├── translator.py     # LLM chat wrapper + word-alignment JSON extraction + furigana generation
 │   ├── requirements.txt
 │   └── .env              # Server URL / model config (safe to commit as template)
 ├── frontend/
+│   ├── index.html        # Vite HTML entry point
 │   ├── src/
+│   │   ├── main.jsx                       # React entry point
+│   │   ├── index.css                      # Global styles (Tailwind directives)
 │   │   ├── App.jsx                        # Root layout – tabs, language bar, Translate All
 │   │   ├── api.js                         # Axios client + LM Studio/Ollama helpers
 │   │   └── components/
 │   │       ├── LmStudioConfig.jsx         # Provider/URL/model connection bar
 │   │       ├── SectionPanel.jsx           # Source ↔ Translation split view + word-edit modal
-│   │       ├── WordDisplay.jsx            # Interactive word spans + alignment algorithm
+│   │       ├── WordDisplay.jsx            # Interactive word spans + alignment + furigana display
 │   │       └── AdjustChat.jsx             # Per-section adjustment chat
 │   ├── package.json
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
 │   └── vite.config.js    # Proxies API calls in dev mode; build outputs to dist/
-└── tests/
-    └── test_translator.py
+├── tests/
+│   └── test_translator.py
+├── run_all.sh            # One-command install + build (backend + frontend)
+├── start_app.sh          # Build frontend + start the server
+└── setup.py              # Minimal setuptools config for namespace imports
 ```
 
 ---
@@ -405,6 +414,7 @@ Built with:
 - **[React](https://react.dev)** + **[Vite](https://vitejs.dev)** for the frontend
 - **[Tailwind CSS](https://tailwindcss.com)** for styling
 - **[Lucide](https://lucide.dev)** for icons
+- **[pykakasi](https://codeberg.org/miurahr/pykakasi)** for Japanese furigana generation
 
 ---
 

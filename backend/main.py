@@ -221,11 +221,14 @@ if FRONTEND_DIR.is_dir():
     if _assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=_assets_dir), name="frontend-assets")
 
+    _FRONTEND_INDEX = FRONTEND_DIR / "index.html"
+
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
         """Serve frontend static files, falling back to index.html for SPA routing."""
-        file_path = (FRONTEND_DIR / full_path).resolve()
-        # Prevent directory traversal
-        if file_path.is_file() and str(file_path).startswith(str(FRONTEND_DIR)):
-            return FileResponse(file_path)
-        return FileResponse(FRONTEND_DIR / "index.html")
+        if full_path:
+            file_path = (FRONTEND_DIR / full_path).resolve()
+            # Only serve files that exist inside the dist directory
+            if file_path.is_relative_to(FRONTEND_DIR) and file_path.is_file():
+                return FileResponse(file_path)
+        return FileResponse(_FRONTEND_INDEX)

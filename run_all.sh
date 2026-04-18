@@ -17,19 +17,20 @@ pip install -r backend/requirements.txt
 echo "📦 Setting up frontend..."
 cd frontend
 npm install
+npm run build
 cd ..
 
 echo "✅ Installation complete!"
 echo ""
-echo "⚠️  REMINDER: Make sure your LLM server (LM Studio or Ollama) is running before starting the backend."
+echo "⚠️  REMINDER: Make sure your LLM server (LM Studio or Ollama) is running before starting the server."
 echo ""
-echo "To run the application, you will need two terminal windows:"
+echo "To run the application:"
 echo ""
-echo "Terminal 1 (Backend):"
 echo "  source .venv/bin/activate"
 echo "  uvicorn backend.main:app --reload --port 8000"
 echo ""
-echo "Terminal 2 (Frontend):"
-echo "  cd frontend && npm run dev"
+echo "Then open http://localhost:8000 in your browser."
+echo ""
+echo "Or simply run: ./start_app.sh"
 echo ""
 echo "---------------------------------------------------------"

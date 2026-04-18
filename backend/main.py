@@ -4,11 +4,14 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -18,6 +21,8 @@ load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 LM_STUDIO_BASE_URL = os.environ.get("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
@@ -202,3 +207,25 @@ async def furigana(req: FuriganaRequest):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="text must not be empty")
     return {"furigana": generate_furigana(req.text)}
+
+
+# ---------------------------------------------------------------------------
+# Serve the built frontend (single-server mode)
+# ---------------------------------------------------------------------------
+# After running `cd frontend && npm run build`, the static assets live in
+# frontend/dist/.  Mount them here so that only uvicorn needs to run.
+
+if FRONTEND_DIR.is_dir():
+    # Serve hashed JS/CSS bundles produced by Vite
+    _assets_dir = FRONTEND_DIR / "assets"
+    if _assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=_assets_dir), name="frontend-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """Serve frontend static files, falling back to index.html for SPA routing."""
+        file_path = (FRONTEND_DIR / full_path).resolve()
+        # Prevent directory traversal
+        if file_path.is_file() and str(file_path).startswith(str(FRONTEND_DIR)):
+            return FileResponse(file_path)
+        return FileResponse(FRONTEND_DIR / "index.html")

@@ -35,7 +35,7 @@ _JAPANESE = "japanese"
 
 
 def _extract_reasoning_text(value) -> str:
-    """Normalise provider-specific reasoning payloads into plain text."""
+    """Normalize provider-specific reasoning payloads into plain text."""
     if not value:
         return ""
     if isinstance(value, str):

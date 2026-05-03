@@ -117,7 +117,7 @@ export const PROVIDER_DEFAULTS = {
   ollama:    'http://localhost:11434',
 };
 
-function makeProviderPayload(baseUrl, provider = 'lm_studio') {
+function buildProviderRequest(baseUrl, provider = 'lm_studio') {
   return {
     base_url: baseUrl || null,
     provider,
@@ -133,7 +133,7 @@ function makeProviderPayload(baseUrl, provider = 'lm_studio') {
  */
 export async function fetchModels(baseUrl, provider = 'lm_studio') {
   try {
-    const { data } = await api.post('/models', makeProviderPayload(baseUrl, provider), {
+    const { data } = await api.post('/models', buildProviderRequest(baseUrl, provider), {
       timeout: 5000,
     });
     return data.data || [];
@@ -150,7 +150,7 @@ export async function fetchModels(baseUrl, provider = 'lm_studio') {
  */
 export async function pingServer(baseUrl, provider = 'lm_studio') {
   try {
-    const { data } = await api.post('/provider-health', makeProviderPayload(baseUrl, provider), {
+    const { data } = await api.post('/provider-health', buildProviderRequest(baseUrl, provider), {
       timeout: 5000,
     });
     return Boolean(data.reachable);

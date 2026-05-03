@@ -204,7 +204,7 @@ async def list_models(req: ProviderRequest):
         except ValueError as exc:
             raise HTTPException(
                 status_code=502,
-                detail="Provider returned an invalid models response.",
+                detail="Provider returned a non-JSON models response.",
             ) from exc
         return {"data": payload.get("data", [])}
     except HTTPException:

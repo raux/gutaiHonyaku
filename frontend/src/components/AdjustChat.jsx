@@ -7,23 +7,16 @@
  */
 import { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
-import { adjustTranslation } from '../api.js';
 
 export default function AdjustChat({
   documentName,
-  original,
-  translation,
-  srcLang,
-  tgtLang,
-  lmConfig,
-  onAdjusted,
+  onRequestAdjust,
   disabled = false,
 }) {
   const [instruction, setInstruction] = useState('');
-  const [history, setHistory]         = useState([]);
+  const [history, setHistory] = useState([]);
   const [isAdjusting, setIsAdjusting] = useState(false);
-  const [error, setError]             = useState('');
-  const historyEndRef                 = useRef(null);
+  const historyEndRef = useRef(null);
 
   // Auto-scroll the history list when new messages arrive
   useEffect(() => {
@@ -36,21 +29,11 @@ export default function AdjustChat({
     const userInstruction = instruction.trim();
     setInstruction('');
     setIsAdjusting(true);
-    setError('');
 
     setHistory(prev => [...prev, { role: 'user', content: userInstruction }]);
 
     try {
-      const result = await adjustTranslation(
-        original,
-        translation,
-        userInstruction,
-        srcLang,
-        tgtLang,
-        lmConfig.lmStudioUrl || null,
-        lmConfig.model        || null,
-        lmConfig.provider     || null,
-      );
+      const result = await onRequestAdjust(userInstruction);
 
       setHistory(prev => [
         ...prev,
@@ -60,14 +43,6 @@ export default function AdjustChat({
           reasoning: result.reasoning || result.explanation || '',
         },
       ]);
-
-      onAdjusted?.(
-        result.translation,
-        result.pairs,
-        result.source_furigana,
-        result.target_furigana,
-        result.reasoning || result.explanation || '',
-      );
     } catch (err) {
       const detail   = err?.response?.data?.detail || err?.message || 'Unknown error';
       const isOffline =
@@ -78,7 +53,6 @@ export default function AdjustChat({
         ? '⚠️ Local server offline – make sure LM Studio or Ollama is running.'
         : `❌ ${detail}`;
 
-      setError(msg);
       setHistory(prev => [...prev, { role: 'error', content: msg }]);
     } finally {
       setIsAdjusting(false);

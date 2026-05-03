@@ -1,3 +1,10 @@
+/**
+ * documentLinks.js – Document utilities for PDF-backed translation.
+ * @typedef {import('./types').Document} Document
+ * @typedef {import('./types').DocumentBlock} DocumentBlock
+ * @typedef {import('./types').PdfLinkState} PdfLinkState
+ */
+
 export function flattenDocumentBlocks(document) {
   if (!document?.pages) return [];
   return document.pages.flatMap(page =>

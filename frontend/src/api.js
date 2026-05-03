@@ -3,6 +3,14 @@
  *
  * The Vite dev-server proxy routes backend endpoints to http://localhost:8000,
  * so we only need a relative base URL here.
+ * @typedef {import('./types').Language} Language
+ * @typedef {import('./types').Provider} Provider
+ * @typedef {import('./types').TranslationResponse} TranslationResponse
+ * @typedef {import('./types').AdjustResponse} AdjustResponse
+ * @typedef {import('./types').Document} Document
+ * @typedef {import('./types').DocumentTranslateResponse} DocumentTranslateResponse
+ * @typedef {import('./types').FuriganaPair} FuriganaPair
+ * @typedef {import('./types').LmConfig} LmConfig
  */
 import axios from 'axios';
 
@@ -20,12 +28,12 @@ const api = axios.create({
  * Translate a document with word-level alignment.
  *
  * @param {string}      text         – source text to translate
- * @param {string}      srcLang      – source language name (e.g. "English")
- * @param {string}      tgtLang      – target language name (e.g. "Japanese")
+ * @param {Language}   srcLang      – source language name (e.g. "English")
+ * @param {Language}   tgtLang      – target language name (e.g. "Japanese")
  * @param {string|null} lmStudioUrl  – optional server URL override
  * @param {string|null} model        – optional model ID override
- * @param {string|null} provider     – "lm_studio" | "ollama"
- * @returns {Promise<{translation: string, reasoning?: string, pairs: Array<{src:string, tgt:string}>}>}
+ * @param {Provider|null} provider   – "lm_studio" | "ollama"
+ * @returns {Promise<TranslationResponse>}
  */
 export async function translateText(
   text,
@@ -49,12 +57,12 @@ export async function translateText(
  * @param {string}      original     – original source text
  * @param {string}      translation  – current translation text
  * @param {string}      instruction  – adjustment instruction from the user
- * @param {string}      srcLang      – source language name
- * @param {string}      tgtLang      – target language name
+ * @param {Language}   srcLang      – source language name
+ * @param {Language}   tgtLang      – target language name
  * @param {string|null} lmStudioUrl  – optional server URL override
  * @param {string|null} model        – optional model ID override
- * @param {string|null} provider     – "lm_studio" | "ollama"
- * @returns {Promise<{translation: string, reasoning?: string, explanation?: string, pairs: Array<{src:string, tgt:string}>}>}
+ * @param {Provider|null} provider   – "lm_studio" | "ollama"
+ * @returns {Promise<AdjustResponse>}
  */
 export async function adjustTranslation(
   original,
@@ -132,7 +140,7 @@ export async function adjustDocumentBlock(
  * Fetch furigana (reading) annotations for Japanese text.
  *
  * @param {string} text – Japanese text to annotate
- * @returns {Promise<Array<{text: string, reading: string}>>}
+ * @returns {Promise<FuriganaPair[]>}
  */
 export async function fetchFurigana(text) {
   const { data } = await api.post('/furigana', { text });
@@ -176,8 +184,8 @@ function buildProviderRequest(baseUrl, provider = 'lm_studio') {
  * Fetch the list of models from a local AI server via the backend.
  *
  * @param {string} baseUrl – e.g. "http://localhost:1234" or "http://localhost:11434"
- * @param {string} provider – "lm_studio" | "ollama"
- * @returns {Array<{id: string}>}
+ * @param {Provider} provider – "lm_studio" | "ollama"
+ * @returns {Promise<Array<{id: string}>>}
  */
 export async function fetchModels(baseUrl, provider = 'lm_studio') {
   try {

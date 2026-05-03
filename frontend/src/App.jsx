@@ -6,6 +6,8 @@
  *   LmStudioConfig  – provider / URL / model connection bar
  *   Language bar    – source lang ⇄ target lang
  *   Document panel  – single source ↔ translation workspace
+ * @typedef {import('./types').Language} Language
+ * @typedef {import('./types').LmConfig} LmConfig
  */
 import { useState, useCallback } from 'react';
 import LmStudioConfig from './components/LmStudioConfig.jsx';

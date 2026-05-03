@@ -4,7 +4,7 @@
 
 ![gutaiHonyaku main interface](https://github.com/user-attachments/assets/9b6ae7dd-32e1-4e4c-b42f-60d2d0c78097)
 
-Type (or paste) source text into any of the five document sections, click **Translate**, and the translation appears side-by-side.  Hover over any word to see which word(s) it maps to in the other panel.  Double-click a word to edit it inline.  Use the **Adjust Translation** chat bar to give free-form instructions such as *"make it more formal"* or *"translate 'book' as 本 not 書物"*.
+Type (or paste) source text into a single document workspace, click **Translate**, and the translation appears side-by-side. Hover over any word to see which word(s) it maps to in the other panel. Double-click a word to edit it inline. Use the **Adjust Translation** chat bar to give free-form instructions such as *"make it more formal"* or *"translate 'book' as 本 not 書物"*.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Type (or paste) source text into any of the five document sections, click **Tran
 - [Running the Application](#running-the-application)
 - [Usage Guide](#usage-guide)
   - [Connecting to your LLM](#connecting-to-your-llm)
-  - [Translating a section](#translating-a-section)
+  - [Translating a document](#translating-a-document)
   - [Word alignment](#word-alignment)
   - [Editing words](#editing-words)
   - [Adjusting translations](#adjusting-translations)
@@ -32,7 +32,7 @@ Type (or paste) source text into any of the five document sections, click **Tran
 ### Main Interface
 
 ![Main interface with language selection](https://github.com/user-attachments/assets/9b6ae7dd-32e1-4e4c-b42f-60d2d0c78097)
-*Five document sections with side-by-side translation panels*
+*Single document workspace with side-by-side translation panels*
 
 ### Word Alignment in Action
 
@@ -64,12 +64,11 @@ Type (or paste) source text into any of the five document sections, click **Tran
 
 | Feature | Description |
 |---|---|
-| **5 document sections** | Title · Introduction · Background & Main Text · Discussion · Conclusion |
+| **Single document workspace** | Translate one full document in a single source ↔ translation view |
 | **Any language pair** | English ⇄ Japanese built-in; source ⇄ target swap with one click |
 | **Word-level alignment** | Hover a word on either side to highlight the aligned word(s) on the other side |
 | **Inline word editing** | Double-click any word in source or translation to replace it |
-| **Adjust Translation chat** | Per-section chat panel: type an instruction and the LLM updates the translation |
-| **Translate All** | One button translates every non-empty section sequentially |
+| **Adjust Translation chat** | Document-level chat panel: type an instruction and the LLM updates the translation |
 | **Furigana (振り仮名)** | Automatic ruby annotations for Japanese kanji, showing hiragana readings above characters |
 | **Local LLM** | Works with [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com) – no data leaves your machine |
 
@@ -219,9 +218,9 @@ Before you can start translating, you need to connect gutaiHonyaku to your local
 
 ---
 
-### Translating a section
+### Translating a document
 
-gutaiHonyaku organizes documents into five sections: Title, Introduction, Background & Main Text, Discussion, and Conclusion. Each section maintains its own translation state.
+gutaiHonyaku now uses a single document workspace. Paste the full text you want to translate into the source panel, then work with the translated result in the panel beside it.
 
 <div align="center">
 <img src="https://github.com/user-attachments/assets/translation-workflow.png" alt="Translation workflow" width="800"/>
@@ -230,10 +229,9 @@ gutaiHonyaku organizes documents into five sections: Title, Introduction, Backgr
 
 **Steps:**
 
-1. **Select a section** – Click one of the five section tabs at the top.
-2. **Choose languages** – Select source and target languages from the language bar. Use the **⇄** button to swap them.
-3. **Enter text** – Type or paste your text into the left (source) panel.
-4. **Translate** – Click **Translate** to translate just this section, or **Translate All** to translate every non-empty section sequentially.
+1. **Choose languages** – Select source and target languages from the language bar. Use the **⇄** button to swap them.
+2. **Enter text** – Type or paste your text into the left (source) panel.
+3. **Translate** – Click **Translate** to translate the current document.
 
 The translation appears in the right panel with word-level alignment automatically computed.
 
@@ -262,7 +260,7 @@ This feature helps you understand how the LLM interpreted each part of the sourc
 
 ### Editing words
 
-You can edit individual words in either the source or translation directly without re-translating the entire section.
+You can edit individual words in either the source or translation directly without re-translating the entire document.
 
 <div align="center">
 <img src="https://github.com/user-attachments/assets/word-edit-modal.png" alt="Word edit modal" width="400"/>
@@ -280,7 +278,7 @@ You can edit individual words in either the source or translation directly witho
 - **Editing a translation word**: The alignment map is rebuilt immediately to reflect the change.
 - **Editing a source word**: The translation is marked as stale (⚠ source changed) and a **Re-translate** button appears. The alignment is cleared until you re-translate.
 
-> **💡 Use case:** Quickly fix terminology without re-translating the entire section.
+> **💡 Use case:** Quickly fix terminology without re-translating the entire document.
 
 ---
 
@@ -290,12 +288,12 @@ Use the **Adjust Translation** chat to give the LLM free-form instructions to re
 
 <div align="center">
 <img src="https://github.com/user-attachments/assets/adjust-chat-panel.png" alt="Adjust Translation chat panel" width="800"/>
-<p><i>Per-section chat for iterative refinement</i></p>
+<p><i>Document-level chat for iterative refinement</i></p>
 </div>
 
 **Steps:**
 
-1. Click **💬 Adjust Translation** at the bottom of any section panel to expand the chat.
+1. Click **💬 Adjust Translation** at the top of the document workspace to expand the chat.
 2. Type a free-form instruction in natural language, for example:
    - *"make the tone more formal"*
    - *"translate 'heart' as 心 instead of ハート"*
@@ -307,7 +305,7 @@ Use the **Adjust Translation** chat to give the LLM free-form instructions to re
    - A brief explanation of what changed
    - Updated word alignment pairs
 
-The chat history is maintained per-section, so you can iteratively refine translations.
+The chat history is maintained for the current document, so you can iteratively refine translations.
 
 **Example conversation:**
 
@@ -331,7 +329,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-All 21 tests cover `extract_json`, `translate_text`, `adjust_translation`, and `generate_furigana` with mock LLM clients.
+The backend test suite currently includes 25 tests covering provider URL helpers, `extract_json`, `translate_text`, `adjust_translation`, and `generate_furigana` with mock LLM clients.
 
 ---
 
@@ -349,19 +347,20 @@ gutaiHonyaku/
 │   ├── src/
 │   │   ├── main.jsx                       # React entry point
 │   │   ├── index.css                      # Global styles (Tailwind directives)
-│   │   ├── App.jsx                        # Root layout – tabs, language bar, Translate All
+│   │   ├── App.jsx                        # Root layout – connection bar, language bar, single document workspace
 │   │   ├── api.js                         # Axios client + LM Studio/Ollama helpers
 │   │   └── components/
 │   │       ├── LmStudioConfig.jsx         # Provider/URL/model connection bar
 │   │       ├── SectionPanel.jsx           # Source ↔ Translation split view + word-edit modal
 │   │       ├── WordDisplay.jsx            # Interactive word spans + alignment + furigana display
-│   │       └── AdjustChat.jsx             # Per-section adjustment chat
+│   │       └── AdjustChat.jsx             # Document adjustment chat
 │   ├── package.json
 │   ├── tailwind.config.js
 │   ├── postcss.config.js
 │   └── vite.config.js    # Proxies API calls in dev mode; build outputs to dist/
 ├── tests/
-│   └── test_translator.py
+│   ├── test_main.py         # Backend route and provider URL helper tests
+│   └── test_translator.py   # Translator and furigana unit tests
 ├── run_all.sh            # One-command install + build (backend + frontend)
 ├── start_app.sh          # Build frontend + start the server
 └── setup.py              # Minimal setuptools config for namespace imports
@@ -434,4 +433,3 @@ Made with ❤️ for the translation community
 > 1. Run the application and capture screenshots of the features you want to showcase
 > 2. Upload them to your GitHub repository (e.g., in a `docs/images/` folder) or use GitHub's issue attachment feature to generate URLs
 > 3. Replace the placeholder URLs in this README with your actual screenshot URLs
-

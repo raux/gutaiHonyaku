@@ -1,5 +1,5 @@
 /**
- * AdjustChat.jsx – Per-section chat panel for adjusting a translation.
+ * AdjustChat.jsx – Chat panel for adjusting a translation.
  *
  * The user types an adjustment instruction (e.g. "make it more formal",
  * "translate 'cat' as 猫 instead of ネコ") and receives an updated translation
@@ -10,7 +10,7 @@ import { Send } from 'lucide-react';
 import { adjustTranslation } from '../api.js';
 
 export default function AdjustChat({
-  sectionName,
+  documentName,
   original,
   translation,
   srcLang,
@@ -124,8 +124,8 @@ export default function AdjustChat({
           disabled={isAdjusting || disabled}
           placeholder={
             disabled
-              ? 'Translate section first to enable adjustment…'
-              : `Adjust ${sectionName} translation… (e.g. "make it more formal")`
+              ? 'Translate the document first to enable adjustment…'
+              : `Adjust the ${documentName.toLowerCase()} translation… (e.g. "make it more formal")`
           }
           className="flex-1 bg-slate-900 text-slate-100 text-xs border border-slate-600
                      rounded px-3 py-1.5 focus:outline-none focus:border-blue-500

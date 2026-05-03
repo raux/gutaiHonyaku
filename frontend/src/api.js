@@ -8,7 +8,7 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: '/',
-  timeout: 180_000, // 3 minutes – translation of long sections can take a while
+  timeout: 180_000, // 3 minutes – translation of long documents can take a while
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -17,7 +17,7 @@ const api = axios.create({
 // ---------------------------------------------------------------------------
 
 /**
- * Translate a section of text with word-level alignment.
+ * Translate a document with word-level alignment.
  *
  * @param {string}      text         – source text to translate
  * @param {string}      srcLang      – source language name (e.g. "English")

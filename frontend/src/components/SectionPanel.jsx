@@ -1,5 +1,5 @@
 /**
- * SectionPanel.jsx – One document section with source + word-aligned translation.
+ * SectionPanel.jsx – Single document workspace with source + word-aligned translation.
  *
  * Layout:
  *   │  💬 Adjust Translation  (collapsible)              │
@@ -18,12 +18,8 @@
  * the alignment map; editing a source word marks the translation as stale and
  * prompts a re-translate.
  *
- * The component forwards a `translate()` method via useImperativeHandle so
- * the parent App can trigger "Translate All" across every section.
  */
 import {
-  forwardRef,
-  useImperativeHandle,
   useCallback,
   useState,
 } from 'react';
@@ -36,10 +32,12 @@ import WordDisplay, {
 import AdjustChat from './AdjustChat.jsx';
 import { translateText } from '../api.js';
 
-const SectionPanel = forwardRef(function SectionPanel(
-  { section, srcLang, tgtLang, lmConfig },
-  ref,
-) {
+export default function SectionPanel({
+  documentName = 'Document',
+  srcLang,
+  tgtLang,
+  lmConfig,
+}) {
   // ── Text state ─────────────────────────────────────────────────────────
   const [srcText, setSrcText] = useState('');
   const [tgtText, setTgtText] = useState('');
@@ -115,9 +113,6 @@ const SectionPanel = forwardRef(function SectionPanel(
     }
   }, [srcText, srcLang, tgtLang, lmConfig, isTranslating]);
 
-  // Expose translate() to the parent (used by "Translate All" in App.jsx)
-  useImperativeHandle(ref, () => ({ translate: handleTranslate }), [handleTranslate]);
-
   // ── Word editing ────────────────────────────────────────────────────────
 
   const openEditModal = (side, wordIdx, currentText) => {
@@ -185,7 +180,7 @@ const SectionPanel = forwardRef(function SectionPanel(
 
         {showChat && (
           <AdjustChat
-            sectionName={section.name}
+            documentName={documentName}
             original={srcText}
             translation={tgtText}
             srcLang={srcLang}
@@ -263,7 +258,7 @@ const SectionPanel = forwardRef(function SectionPanel(
               <textarea
                 value={srcText}
                 onChange={handleSrcChange}
-                placeholder={`Enter ${section.name.toLowerCase()} text here…`}
+                placeholder={`Enter ${documentName.toLowerCase()} text here…`}
                 className="w-full h-full min-h-[200px] resize-none bg-slate-900 text-slate-200
                            text-sm p-4 focus:outline-none placeholder-slate-600"
               />
@@ -384,6 +379,4 @@ const SectionPanel = forwardRef(function SectionPanel(
 
     </div>
   );
-});
-
-export default SectionPanel;
+}

@@ -359,7 +359,7 @@ npm test
 npm run build
 ```
 
-The test suite covers backend route and translator behavior plus frontend document-link helpers.
+The test suite covers backend provider URL helpers, document upload/storage behavior, translation and adjustment helpers, furigana generation, and frontend document-link utilities.
 
 ---
 
@@ -409,7 +409,7 @@ gutaiHonyaku/
 │   ├── documents.py      # PDF ingestion, block chunking, and in-memory document storage
 │   ├── translator.py     # LLM translation, adjustment, alignment extraction, and furigana generation
 │   ├── requirements.txt
-│   └── .env              # Optional server URL / model config
+│   └── .env              # Optional server URL / model config template
 ├── frontend/
 │   ├── index.html        # Vite HTML entry point
 │   ├── src/

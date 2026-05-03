@@ -4,7 +4,7 @@
 
 ![gutaiHonyaku main interface](https://github.com/user-attachments/assets/9b6ae7dd-32e1-4e4c-b42f-60d2d0c78097)
 
-Type (or paste) source text into a single document workspace, click **Translate**, and the translation appears side-by-side. Hover over any word to see which word(s) it maps to in the other panel. Double-click a word to edit it inline. Use the **Adjust Translation** chat bar to give free-form instructions such as *"make it more formal"* or *"translate 'book' as 本 not 書物"*. A dedicated **LLM Reasoning** panel shows the model's latest explanation of its translation choices.
+Type (or paste) source text into a single document workspace, or upload a PDF to preserve page references while extracting text for translation. Hover over any word to see which word(s) it maps to in the other panel. Double-click a word to edit it inline in plain-text mode. Use the **Adjust Translation** chat bar to give free-form instructions such as *"make it more formal"* or *"translate 'book' as 本 not 書物"*. A dedicated **LLM Reasoning** panel shows the model's latest explanation of its translation choices.
 
 ## Table of Contents
 
@@ -65,6 +65,7 @@ Type (or paste) source text into a single document workspace, click **Translate*
 | Feature | Description |
 |---|---|
 | **Single document workspace** | Translate one full document in a single source ↔ translation view |
+| **PDF ingestion with page links** | Upload a PDF, extract text by page/block, and keep the translation linked back to each source page |
 | **Any language pair** | English ⇄ Japanese built-in; source ⇄ target swap with one click |
 | **Word-level alignment** | Hover a word on either side to highlight the aligned word(s) on the other side |
 | **Inline word editing** | Double-click any word in source or translation to replace it |
@@ -235,6 +236,23 @@ gutaiHonyaku now uses a single document workspace. Paste the full text you want 
 3. **Translate** – Click **Translate** to translate the current document.
 
 The translation appears in the right panel with word-level alignment automatically computed.
+
+---
+
+### Translating a PDF
+
+You can also switch the source mode to **PDF upload** and translate an extracted document while preserving page-level links.
+
+**Steps:**
+
+1. **Switch to PDF upload** – Use the source mode toggle at the top of the workspace.
+2. **Upload a PDF** – Select a `.pdf` file. The backend stores it temporarily, extracts text page by page, and splits long pages into smaller blocks.
+3. **Review extracted pages** – The left panel shows an embedded PDF viewer plus the extracted text blocks for each page.
+4. **Translate the PDF** – Click **Translate PDF** to translate each extracted block while keeping its original page number.
+5. **Jump between views** – Click a translated block to jump to the corresponding PDF page, or click an extracted source block to focus the linked translation.
+6. **Adjust only one block** – Use **Adjust Translation** after selecting a translated PDF block to rework that block without retranslating the entire file.
+
+> **Note:** Image-only or scanned PDFs without extractable text are rejected with a message that OCR is required.
 
 ---
 

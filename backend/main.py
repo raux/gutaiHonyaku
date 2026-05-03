@@ -9,13 +9,14 @@ from urllib.parse import urlparse
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 from pydantic import BaseModel
 
+from backend.documents import DocumentStore
 from backend.translator import translate_text, adjust_translation, generate_furigana
 
 load_dotenv()
@@ -29,6 +30,7 @@ LM_STUDIO_BASE_URL = os.environ.get("LM_STUDIO_BASE_URL", "http://localhost:1234
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 DEFAULT_MODEL = os.environ.get("LM_STUDIO_MODEL", "")
 PROVIDER_TIMEOUT_SECONDS = 5
+document_store = DocumentStore()
 
 
 def _provider_defaults(provider: str | None) -> tuple[str, str]:
@@ -144,6 +146,86 @@ class FuriganaRequest(BaseModel):
 class ProviderRequest(BaseModel):
     base_url: str | None = None
     provider: str | None = "lm_studio"
+
+
+class DocumentTranslateRequest(BaseModel):
+    source_lang: str = "English"
+    target_lang: str = "Japanese"
+    lm_studio_url: str | None = None
+    model: str | None = None
+    provider: str | None = "lm_studio"
+
+
+class DocumentAdjustRequest(DocumentTranslateRequest):
+    instruction: str
+
+
+def _build_document_translation_payload(document: dict, translated_blocks: list[dict]) -> dict:
+    blocks_by_id = {block["block_id"]: block for block in translated_blocks}
+    translated_pages: list[dict] = []
+
+    for page in document["pages"]:
+        page_blocks = [blocks_by_id[block["block_id"]] for block in page["blocks"] if block["block_id"] in blocks_by_id]
+        page_translation = "\n\n".join(block["translation"] for block in page_blocks if block["translation"].strip())
+        translated_pages.append(
+            {
+                "page_number": page["page_number"],
+                "source_text": page["text"],
+                "translation": page_translation,
+                "blocks": page_blocks,
+            }
+        )
+
+    full_translation = "\n\n\n".join(page["translation"] for page in translated_pages if page["translation"].strip())
+    page_mappings = [
+        {
+            "page_number": page["page_number"],
+            "source_block_ids": [block["block_id"] for block in page["blocks"]],
+            "translated_block_ids": [block["block_id"] for block in page["blocks"]],
+        }
+        for page in translated_pages
+    ]
+
+    return {
+        "document_id": document["document_id"],
+        "source_type": document["source_type"],
+        "filename": document["filename"],
+        "pdf_url": document["pdf_url"],
+        "page_count": document["page_count"],
+        "translation": full_translation,
+        "pages": translated_pages,
+        "blocks": translated_blocks,
+        "page_mappings": page_mappings,
+        "selected_block_id": translated_blocks[0]["block_id"] if translated_blocks else None,
+    }
+
+
+def _translate_document(document: dict, client: OpenAI, model: str, source_lang: str, target_lang: str) -> dict:
+    translated_blocks: list[dict] = []
+
+    for page in document["pages"]:
+        for block in page["blocks"]:
+            result = translate_text(client, model, block["text"], source_lang, target_lang)
+            translated_blocks.append(
+                {
+                    "block_id": block["block_id"],
+                    "page_number": block["page_number"],
+                    "block_index": block["block_index"],
+                    "source_text": block["text"],
+                    "translation": result["translation"],
+                    "reasoning": result.get("reasoning", ""),
+                    "pairs": result.get("pairs", []),
+                    "source_furigana": result.get("source_furigana"),
+                    "target_furigana": result.get("target_furigana"),
+                    "mapping": {
+                        "page_number": block["page_number"],
+                        "source_block_id": block["block_id"],
+                        "translated_block_id": block["block_id"],
+                    },
+                }
+            )
+
+    return _build_document_translation_payload(document, translated_blocks)
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +353,128 @@ async def adjust(req: AdjustRequest):
                 ),
             )
         raise HTTPException(status_code=500, detail=msg)
+
+
+@app.post("/documents/upload")
+async def upload_document(file: UploadFile = File(...)):
+    filename = file.filename or "document.pdf"
+    suffix = Path(filename).suffix.lower()
+    if suffix != ".pdf":
+        raise HTTPException(status_code=400, detail="Only PDF uploads are supported.")
+
+    content_type = (file.content_type or "").lower()
+    if content_type and content_type not in {"application/pdf", "application/x-pdf"}:
+        raise HTTPException(status_code=400, detail="Uploaded file must be a PDF.")
+
+    payload = await file.read()
+    try:
+        return document_store.create_pdf_document(filename, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/documents/{document_id}")
+async def get_document(document_id: str):
+    try:
+        return document_store.get_document_payload(document_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Document not found.") from exc
+
+
+@app.get("/documents/{document_id}/pdf")
+async def get_document_pdf(document_id: str):
+    try:
+        pdf_path = document_store.get_pdf_path(document_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Document not found.") from exc
+    return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name)
+
+
+@app.post("/documents/{document_id}/translate")
+async def translate_document(document_id: str, req: DocumentTranslateRequest):
+    try:
+        document = document_store.get_document(document_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Document not found.") from exc
+
+    try:
+        client, model = _make_client(req.lm_studio_url, req.model, req.provider)
+        result = _translate_document(document, client, model, req.source_lang, req.target_lang)
+        document_store.set_translation(document_id, result)
+        return result
+    except Exception as e:
+        msg = str(e)
+        if any(k in msg.lower() for k in ("connection", "refused", "offline", "reachable")):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Local server offline – make sure LM Studio or Ollama is running "
+                    "and a model is loaded."
+                ),
+            )
+        raise HTTPException(status_code=500, detail=msg)
+
+
+@app.post("/documents/{document_id}/blocks/{block_id}/adjust")
+async def adjust_document_block(document_id: str, block_id: str, req: DocumentAdjustRequest):
+    if not req.instruction.strip():
+        raise HTTPException(status_code=400, detail="instruction must not be empty")
+
+    try:
+        source_block = document_store.get_block(document_id, block_id)
+        current_translation = document_store.get_translation(document_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Document or block not found.") from exc
+
+    if not current_translation:
+        raise HTTPException(status_code=409, detail="Translate the PDF before adjusting a block.")
+
+    translated_block = next((block for block in current_translation["blocks"] if block["block_id"] == block_id), None)
+    if not translated_block:
+        raise HTTPException(status_code=404, detail="Translated block not found.")
+
+    try:
+        client, model = _make_client(req.lm_studio_url, req.model, req.provider)
+        result = adjust_translation(
+            client,
+            model,
+            source_block["text"],
+            translated_block["translation"],
+            req.instruction,
+            req.source_lang,
+            req.target_lang,
+        )
+    except Exception as e:
+        msg = str(e)
+        if any(k in msg.lower() for k in ("connection", "refused", "offline", "reachable")):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Local server offline – make sure LM Studio or Ollama is running "
+                    "and a model is loaded."
+                ),
+            )
+        raise HTTPException(status_code=500, detail=msg)
+
+    updated_blocks = []
+    for block in current_translation["blocks"]:
+        if block["block_id"] == block_id:
+            updated_blocks.append(
+                {
+                    **block,
+                    "translation": result["translation"],
+                    "reasoning": result.get("reasoning", result.get("explanation", "")),
+                    "pairs": result.get("pairs", []),
+                    "source_furigana": result.get("source_furigana"),
+                    "target_furigana": result.get("target_furigana"),
+                }
+            )
+        else:
+            updated_blocks.append(block)
+
+    updated_translation = _build_document_translation_payload(document_store.get_document(document_id), updated_blocks)
+    document_store.set_translation(document_id, updated_translation)
+    return updated_translation
 
 
 @app.post("/furigana")

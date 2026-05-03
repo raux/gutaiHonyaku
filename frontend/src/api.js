@@ -80,6 +80,54 @@ export async function adjustTranslation(
   return data;
 }
 
+export async function uploadPdfDocument(file) {
+  const payload = new FormData();
+  payload.append('file', file);
+  const { data } = await api.post('/documents/upload', payload, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120_000,
+  });
+  return data;
+}
+
+export async function translateDocument(
+  documentId,
+  srcLang,
+  tgtLang,
+  lmStudioUrl = null,
+  model = null,
+  provider = null,
+) {
+  const payload = { source_lang: srcLang, target_lang: tgtLang };
+  if (lmStudioUrl) payload.lm_studio_url = lmStudioUrl;
+  if (model)       payload.model         = model;
+  if (provider)    payload.provider      = provider;
+  const { data } = await api.post(`/documents/${documentId}/translate`, payload, {
+    timeout: 180_000,
+  });
+  return data;
+}
+
+export async function adjustDocumentBlock(
+  documentId,
+  blockId,
+  instruction,
+  srcLang,
+  tgtLang,
+  lmStudioUrl = null,
+  model = null,
+  provider = null,
+) {
+  const payload = { instruction, source_lang: srcLang, target_lang: tgtLang };
+  if (lmStudioUrl) payload.lm_studio_url = lmStudioUrl;
+  if (model)       payload.model         = model;
+  if (provider)    payload.provider      = provider;
+  const { data } = await api.post(`/documents/${documentId}/blocks/${blockId}/adjust`, payload, {
+    timeout: 180_000,
+  });
+  return data;
+}
+
 /**
  * Fetch furigana (reading) annotations for Japanese text.
  *

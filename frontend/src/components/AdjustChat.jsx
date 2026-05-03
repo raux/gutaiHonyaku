@@ -17,6 +17,7 @@ export default function AdjustChat({
   tgtLang,
   lmConfig,
   onAdjusted,
+  onRequestAdjust,
   disabled = false,
 }) {
   const [instruction, setInstruction] = useState('');
@@ -41,16 +42,18 @@ export default function AdjustChat({
     setHistory(prev => [...prev, { role: 'user', content: userInstruction }]);
 
     try {
-      const result = await adjustTranslation(
-        original,
-        translation,
-        userInstruction,
-        srcLang,
-        tgtLang,
-        lmConfig.lmStudioUrl || null,
-        lmConfig.model        || null,
-        lmConfig.provider     || null,
-      );
+      const result = onRequestAdjust
+        ? await onRequestAdjust(userInstruction)
+        : await adjustTranslation(
+          original,
+          translation,
+          userInstruction,
+          srcLang,
+          tgtLang,
+          lmConfig.lmStudioUrl || null,
+          lmConfig.model        || null,
+          lmConfig.provider     || null,
+        );
 
       setHistory(prev => [
         ...prev,

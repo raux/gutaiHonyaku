@@ -1,8 +1,8 @@
 /**
  * api.js – Axios instance for the gutaiHonyaku backend.
  *
- * The Vite dev-server proxy routes /translate, /adjust, /health, and /status
- * to http://localhost:8000, so we only need a relative base URL here.
+ * The Vite dev-server proxy routes backend endpoints to http://localhost:8000,
+ * so we only need a relative base URL here.
  */
 import axios from 'axios';
 
@@ -117,30 +117,25 @@ export const PROVIDER_DEFAULTS = {
   ollama:    'http://localhost:11434',
 };
 
-const LM_STUDIO_API_KEY = 'lm-studio';
-
-/**
- * Normalise a server base URL so it never ends with /v1 or /v1/.
- * Avoids double-/v1 when the caller appends /v1/models.
- */
-function stripV1Suffix(url) {
-  return url.replace(/\/v1\/?$/, '').replace(/\/+$/, '');
+function makeProviderPayload(baseUrl, provider = 'lm_studio') {
+  return {
+    base_url: baseUrl || null,
+    provider,
+  };
 }
 
 /**
- * Fetch the list of models from a local AI server (LM Studio or Ollama).
+ * Fetch the list of models from a local AI server via the backend.
  *
  * @param {string} baseUrl – e.g. "http://localhost:1234" or "http://localhost:11434"
+ * @param {string} provider – "lm_studio" | "ollama"
  * @returns {Array<{id: string}>}
  */
-export async function fetchModels(baseUrl) {
+export async function fetchModels(baseUrl, provider = 'lm_studio') {
   try {
-    const resp = await fetch(`${stripV1Suffix(baseUrl)}/v1/models`, {
-      headers: { Authorization: `Bearer ${LM_STUDIO_API_KEY}` },
-      signal: AbortSignal.timeout(2500),
+    const { data } = await api.post('/models', makeProviderPayload(baseUrl, provider), {
+      timeout: 5000,
     });
-    if (!resp.ok) return [];
-    const data = await resp.json();
     return data.data || [];
   } catch {
     return [];
@@ -148,17 +143,17 @@ export async function fetchModels(baseUrl) {
 }
 
 /**
- * Ping a local AI server and return true if it responds successfully.
+ * Ping a local AI server via the backend and return true if it responds successfully.
  *
  * @param {string} baseUrl – e.g. "http://localhost:1234" or "http://localhost:11434"
+ * @param {string} provider – "lm_studio" | "ollama"
  */
-export async function pingServer(baseUrl) {
+export async function pingServer(baseUrl, provider = 'lm_studio') {
   try {
-    const resp = await fetch(`${stripV1Suffix(baseUrl)}/v1/models`, {
-      headers: { Authorization: `Bearer ${LM_STUDIO_API_KEY}` },
-      signal: AbortSignal.timeout(2500),
+    const { data } = await api.post('/provider-health', makeProviderPayload(baseUrl, provider), {
+      timeout: 5000,
     });
-    return resp.ok;
+    return Boolean(data.reachable);
   } catch {
     return false;
   }

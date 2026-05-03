@@ -5,6 +5,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from dotenv import load_dotenv
@@ -29,25 +30,55 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 DEFAULT_MODEL = os.environ.get("LM_STUDIO_MODEL", "")
 
 
+def _provider_defaults(provider: str | None) -> tuple[str, str]:
+    """Return the default base URL and API key for the selected provider."""
+    if provider == "ollama":
+        return OLLAMA_BASE_URL, "ollama"
+    return LM_STUDIO_BASE_URL, "lm-studio"
+
+
+def _normalize_base_url(base_url: str) -> str:
+    """Normalise a provider URL so it includes a scheme and ends with /v1."""
+    normalized = (base_url or "").strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail="base_url must not be empty")
+
+    if not normalized.startswith(("http://", "https://")):
+        normalized = f"http://{normalized}"
+
+    parsed = urlparse(normalized)
+    if not parsed.scheme or not parsed.netloc:
+        raise HTTPException(status_code=400, detail="Invalid provider URL")
+
+    normalized = normalized.rstrip("/")
+    if not normalized.endswith("/v1"):
+        normalized = f"{normalized}/v1"
+
+    return normalized
+
+
+def _resolve_provider_request(base_url: str | None, provider: str | None) -> tuple[str, str]:
+    """Resolve a provider request to a normalised OpenAI-compatible base URL and API key."""
+    default_url, api_key = _provider_defaults(provider)
+    return _normalize_base_url(base_url or default_url), api_key
+
+
+async def _fetch_provider_models(base_url: str, api_key: str) -> httpx.Response:
+    """Fetch the provider's model list from its OpenAI-compatible /models endpoint."""
+    async with httpx.AsyncClient(timeout=3) as client:
+        return await client.get(
+            f"{base_url}/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+
+
 def _make_client(
     lm_studio_url: str | None,
     model: str | None,
     provider: str | None,
 ) -> tuple[OpenAI, str]:
     """Create an OpenAI-compatible client and resolve the model name."""
-    if provider == "ollama":
-        base_url = lm_studio_url or OLLAMA_BASE_URL
-        api_key = "ollama"
-    else:
-        base_url = lm_studio_url or LM_STUDIO_BASE_URL
-        api_key = "lm-studio"
-
-    # Normalise base URL – ensure it ends with /v1
-    stripped = base_url.rstrip("/")
-    if not stripped.endswith("/v1"):
-        base_url = stripped + "/v1"
-    else:
-        base_url = stripped
+    base_url, api_key = _resolve_provider_request(lm_studio_url, provider)
 
     client = OpenAI(base_url=base_url, api_key=api_key)
 
@@ -109,6 +140,11 @@ class FuriganaRequest(BaseModel):
     text: str
 
 
+class ProviderRequest(BaseModel):
+    base_url: str | None = None
+    provider: str | None = "lm_studio"
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -124,30 +160,57 @@ async def status():
     results: dict = {}
 
     # LM Studio
-    lm_url = LM_STUDIO_BASE_URL.rstrip("/v1").rstrip("/")
     try:
-        async with httpx.AsyncClient(timeout=3) as client:
-            r = await client.get(
-                f"{lm_url}/v1/models",
-                headers={"Authorization": "Bearer lm-studio"},
-            )
-            results["lm_studio"] = {"reachable": r.status_code == 200}
+        lm_url, lm_api_key = _resolve_provider_request(None, "lm_studio")
+        r = await _fetch_provider_models(lm_url, lm_api_key)
+        results["lm_studio"] = {"reachable": r.status_code == 200}
     except Exception:
         results["lm_studio"] = {"reachable": False}
 
     # Ollama
-    ollama_url = OLLAMA_BASE_URL.rstrip("/v1").rstrip("/")
     try:
-        async with httpx.AsyncClient(timeout=3) as client:
-            r = await client.get(
-                f"{ollama_url}/v1/models",
-                headers={"Authorization": "Bearer ollama"},
-            )
-            results["ollama"] = {"reachable": r.status_code == 200}
+        ollama_url, ollama_api_key = _resolve_provider_request(None, "ollama")
+        r = await _fetch_provider_models(ollama_url, ollama_api_key)
+        results["ollama"] = {"reachable": r.status_code == 200}
     except Exception:
         results["ollama"] = {"reachable": False}
 
     return results
+
+
+@app.post("/provider-health")
+async def provider_health(req: ProviderRequest):
+    """Check whether a specific LM Studio or Ollama URL is reachable."""
+    try:
+        base_url, api_key = _resolve_provider_request(req.base_url, req.provider)
+        response = await _fetch_provider_models(base_url, api_key)
+        return {"reachable": response.status_code == 200}
+    except HTTPException:
+        raise
+    except Exception:
+        return {"reachable": False}
+
+
+@app.post("/models")
+async def list_models(req: ProviderRequest):
+    """Fetch models for a specific LM Studio or Ollama URL via the backend."""
+    try:
+        base_url, api_key = _resolve_provider_request(req.base_url, req.provider)
+        response = await _fetch_provider_models(base_url, api_key)
+        response.raise_for_status()
+        return {"data": response.json().get("data", [])}
+    except HTTPException:
+        raise
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Provider returned HTTP {exc.response.status_code} while listing models.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not reach the local provider to list models.",
+        ) from exc
 
 
 @app.post("/translate")

@@ -41,6 +41,7 @@ export default function SectionPanel({
   // ── Text state ─────────────────────────────────────────────────────────
   const [srcText, setSrcText] = useState('');
   const [tgtText, setTgtText] = useState('');
+  const [reasoning, setReasoning] = useState('');
   const [pairs,   setPairs]   = useState([]);
   const [alignment, setAlignment] = useState({ srcToTgt: {}, tgtToSrc: {} });
 
@@ -74,7 +75,10 @@ export default function SectionPanel({
 
   const handleSrcChange = (e) => {
     setSrcText(e.target.value);
-    if (tgtText) setSrcStale(true);
+    if (tgtText) {
+      setSrcStale(true);
+      setReasoning('');
+    }
   };
 
   const handleTranslate = useCallback(async () => {
@@ -91,6 +95,7 @@ export default function SectionPanel({
         lmConfig.provider     || null,
       );
       setTgtText(result.translation);
+      setReasoning(result.reasoning || '');
       setPairs(result.pairs || []);
       setAlignment(buildAlignment(srcText, result.translation, result.pairs || []));
       setSrcFurigana(result.source_furigana || null);
@@ -133,6 +138,7 @@ export default function SectionPanel({
       setSrcText(newSrc);
       // Source edited → mark translation as stale; alignment no longer valid
       setSrcStale(true);
+      setReasoning('');
       setAlignment({ srcToTgt: {}, tgtToSrc: {} });
     }
 
@@ -147,9 +153,16 @@ export default function SectionPanel({
 
   // ── Adjusted by AdjustChat ──────────────────────────────────────────────
 
-  const handleAdjusted = (newTranslation, newPairs, newSrcFurigana, newTgtFurigana) => {
+  const handleAdjusted = (
+    newTranslation,
+    newPairs,
+    newSrcFurigana,
+    newTgtFurigana,
+    newReasoning = '',
+  ) => {
     const usedPairs = newPairs?.length ? newPairs : pairs;
     setTgtText(newTranslation);
+    setReasoning(newReasoning);
     setPairs(usedPairs);
     setAlignment(buildAlignment(srcText, newTranslation, usedPairs));
     if (newSrcFurigana) setSrcFurigana(newSrcFurigana);
@@ -190,6 +203,18 @@ export default function SectionPanel({
             disabled={!tgtText}
           />
         )}
+      </div>
+
+      {/* ── Model reasoning ─────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 border-b border-slate-700 bg-slate-950/60">
+        <div className="px-4 py-2 border-b border-slate-800 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          🧠 LLM Reasoning
+        </div>
+        <div className="px-4 py-3 text-xs text-slate-300 min-h-[72px] max-h-32 overflow-y-auto">
+          {reasoning
+            ? <p className="whitespace-pre-wrap">{reasoning}</p>
+            : <p className="text-slate-500">Reasoning will appear here after the model returns it.</p>}
+        </div>
       </div>
 
       {/* ── Translation panels ─────────────────────────────────────────── */}

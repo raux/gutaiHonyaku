@@ -25,7 +25,7 @@ const api = axios.create({
  * @param {string|null} lmStudioUrl  – optional server URL override
  * @param {string|null} model        – optional model ID override
  * @param {string|null} provider     – "lm_studio" | "ollama"
- * @returns {Promise<{translation: string, pairs: Array<{src:string, tgt:string}>}>}
+ * @returns {Promise<{translation: string, reasoning?: string, pairs: Array<{src:string, tgt:string}>}>}
  */
 export async function translateText(
   text,
@@ -54,7 +54,7 @@ export async function translateText(
  * @param {string|null} lmStudioUrl  – optional server URL override
  * @param {string|null} model        – optional model ID override
  * @param {string|null} provider     – "lm_studio" | "ollama"
- * @returns {Promise<{translation: string, explanation: string, pairs: Array<{src:string, tgt:string}>}>}
+ * @returns {Promise<{translation: string, reasoning?: string, explanation?: string, pairs: Array<{src:string, tgt:string}>}>}
  */
 export async function adjustTranslation(
   original,

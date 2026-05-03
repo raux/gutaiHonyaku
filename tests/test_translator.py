@@ -9,38 +9,49 @@ from backend.translator import extract_json, translate_text, adjust_translation,
 # ---------------------------------------------------------------------------
 
 class DummyMessage:
-    def __init__(self, content):
+    def __init__(self, content, reasoning_content=None, reasoning=None, model_extra=None):
         self.content = content
+        self.reasoning_content = reasoning_content
+        self.reasoning = reasoning
+        self.model_extra = model_extra or {}
 
 
 class DummyChoice:
-    def __init__(self, content):
-        self.message = DummyMessage(content)
+    def __init__(self, content, reasoning_content=None, reasoning=None, model_extra=None):
+        self.message = DummyMessage(content, reasoning_content, reasoning, model_extra)
         self.finish_reason = "stop"
 
 
 class DummyResponse:
-    def __init__(self, content):
-        self.choices = [DummyChoice(content)]
+    def __init__(self, content, reasoning_content=None, reasoning=None, model_extra=None):
+        self.choices = [DummyChoice(content, reasoning_content, reasoning, model_extra)]
         self.model = "test-model"
 
 
 class DummyCompletions:
-    def __init__(self, content):
+    def __init__(self, content, reasoning_content=None, reasoning=None, model_extra=None):
         self._content = content
+        self._reasoning_content = reasoning_content
+        self._reasoning = reasoning
+        self._model_extra = model_extra
 
     def create(self, model=None, messages=None, temperature=0.3):
-        return DummyResponse(self._content)
+        return DummyResponse(
+            self._content,
+            reasoning_content=self._reasoning_content,
+            reasoning=self._reasoning,
+            model_extra=self._model_extra,
+        )
 
 
 class DummyChat:
-    def __init__(self, content):
-        self.completions = DummyCompletions(content)
+    def __init__(self, content, reasoning_content=None, reasoning=None, model_extra=None):
+        self.completions = DummyCompletions(content, reasoning_content, reasoning, model_extra)
 
 
 class DummyClient:
-    def __init__(self, response_content):
-        self.chat = DummyChat(response_content)
+    def __init__(self, response_content, reasoning_content=None, reasoning=None, model_extra=None):
+        self.chat = DummyChat(response_content, reasoning_content, reasoning, model_extra)
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +60,7 @@ class DummyClient:
 
 TRANSLATION_RESPONSE = json.dumps({
     "translation": "こんにちは世界",
+    "reasoning": "Used the standard Japanese greeting and a direct noun translation.",
     "pairs": [
         {"src": "Hello", "tgt": "こんにちは"},
         {"src": "world", "tgt": "世界"},
@@ -57,7 +69,7 @@ TRANSLATION_RESPONSE = json.dumps({
 
 ADJUST_RESPONSE = json.dumps({
     "translation": "こんにちは、世界！",
-    "explanation": "Added a comma and exclamation mark for emphasis",
+    "reasoning": "Added a comma and exclamation mark for emphasis",
     "pairs": [
         {"src": "Hello", "tgt": "こんにちは"},
         {"src": "world", "tgt": "世界"},
@@ -105,6 +117,7 @@ def test_translate_text_returns_translation():
     result = translate_text(client, "test-model", "Hello world", "English", "Japanese")
 
     assert result["translation"] == "こんにちは世界"
+    assert result["reasoning"] == "Used the standard Japanese greeting and a direct noun translation."
     assert isinstance(result["pairs"], list)
     assert len(result["pairs"]) == 2
 
@@ -130,6 +143,14 @@ def test_translate_text_empty_pairs_on_missing_key():
     assert result["pairs"] == []
 
 
+def test_translate_text_uses_provider_reasoning_when_json_missing():
+    response = json.dumps({"translation": "Bonjour", "pairs": []})
+    client = DummyClient(response, reasoning_content="Chose the most common French equivalent.")
+    result = translate_text(client, "test-model", "Hello", "English", "French")
+
+    assert result["reasoning"] == "Chose the most common French equivalent."
+
+
 # ---------------------------------------------------------------------------
 # adjust_translation tests
 # ---------------------------------------------------------------------------
@@ -147,6 +168,7 @@ def test_adjust_translation_returns_fields():
     )
 
     assert "translation" in result
+    assert "reasoning" in result
     assert "explanation" in result
     assert "pairs" in result
 
@@ -164,11 +186,12 @@ def test_adjust_translation_content():
     )
 
     assert result["translation"] == "こんにちは、世界！"
-    assert "comma" in result["explanation"].lower() or "emphasis" in result["explanation"].lower()
+    assert "comma" in result["reasoning"].lower() or "emphasis" in result["reasoning"].lower()
+    assert result["reasoning"] == result["explanation"]
 
 
 def test_adjust_translation_missing_explanation():
-    """If the LLM omits explanation, we return an empty string."""
+    """If the LLM omits reasoning, we return an empty string."""
     response = json.dumps({
         "translation": "Adjusted text",
         "pairs": [],
@@ -177,7 +200,23 @@ def test_adjust_translation_missing_explanation():
     result = adjust_translation(
         client, "test-model", "Source", "Translation", "instruction", "English", "French"
     )
+    assert result["reasoning"] == ""
     assert result["explanation"] == ""
+
+
+def test_adjust_translation_uses_legacy_explanation_key():
+    response = json.dumps({
+        "translation": "Adjusted text",
+        "explanation": "Made the tone more formal.",
+        "pairs": [],
+    })
+    client = DummyClient(response)
+    result = adjust_translation(
+        client, "test-model", "Source", "Translation", "instruction", "English", "French"
+    )
+
+    assert result["reasoning"] == "Made the tone more formal."
+    assert result["explanation"] == "Made the tone more formal."
 
 
 # ---------------------------------------------------------------------------

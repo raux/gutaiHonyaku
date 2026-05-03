@@ -329,7 +329,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-All 21 tests cover `extract_json`, `translate_text`, `adjust_translation`, and `generate_furigana` with mock LLM clients.
+The backend test suite currently includes 25 tests covering provider URL helpers, `extract_json`, `translate_text`, `adjust_translation`, and `generate_furigana` with mock LLM clients.
 
 ---
 
@@ -359,7 +359,8 @@ gutaiHonyaku/
 │   ├── postcss.config.js
 │   └── vite.config.js    # Proxies API calls in dev mode; build outputs to dist/
 ├── tests/
-│   └── test_translator.py
+│   ├── test_main.py         # Backend route and provider URL helper tests
+│   └── test_translator.py   # Translator and furigana unit tests
 ├── run_all.sh            # One-command install + build (backend + frontend)
 ├── start_app.sh          # Build frontend + start the server
 └── setup.py              # Minimal setuptools config for namespace imports

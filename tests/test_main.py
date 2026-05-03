@@ -17,7 +17,7 @@ class DummyResponse:
 
     def raise_for_status(self):
         if self.status_code >= 400:
-            request = main.httpx.Request("GET", "http://localhost/v1/models")
+            request = main.httpx.Request("GET", "http://provider.test/v1/models")
             response = main.httpx.Response(self.status_code, request=request)
             raise main.httpx.HTTPStatusError("boom", request=request, response=response)
 

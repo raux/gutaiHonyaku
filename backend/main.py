@@ -28,6 +28,7 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 LM_STUDIO_BASE_URL = os.environ.get("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 DEFAULT_MODEL = os.environ.get("LM_STUDIO_MODEL", "")
+PROVIDER_TIMEOUT_SECONDS = 5
 
 
 def _provider_defaults(provider: str | None) -> tuple[str, str]:
@@ -65,7 +66,7 @@ def _resolve_provider_request(base_url: str | None, provider: str | None) -> tup
 
 async def _fetch_provider_models(base_url: str, api_key: str) -> httpx.Response:
     """Fetch the provider's model list from its OpenAI-compatible /models endpoint."""
-    async with httpx.AsyncClient(timeout=3) as client:
+    async with httpx.AsyncClient(timeout=PROVIDER_TIMEOUT_SECONDS) as client:
         return await client.get(
             f"{base_url}/models",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -198,7 +199,14 @@ async def list_models(req: ProviderRequest):
         base_url, api_key = _resolve_provider_request(req.base_url, req.provider)
         response = await _fetch_provider_models(base_url, api_key)
         response.raise_for_status()
-        return {"data": response.json().get("data", [])}
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="Provider returned an invalid models response.",
+            ) from exc
+        return {"data": payload.get("data", [])}
     except HTTPException:
         raise
     except httpx.HTTPStatusError as exc:

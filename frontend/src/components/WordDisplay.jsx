@@ -62,7 +62,7 @@ export function tokenizeWords(text) {
 /** Strip punctuation and lowercase for fuzzy matching. */
 function normalise(s) {
   return s
-    .replace(/[.,!?;:'"()\[\]{}\u3002\u3001\uff01\uff1f\u300c\u300d]/g, '')
+    .replace(/[.,!?;:'"()[\]{}\u3002\u3001\uff01\uff1f\u300c\u300d]/g, '')
     .toLowerCase()
     .trim();
 }

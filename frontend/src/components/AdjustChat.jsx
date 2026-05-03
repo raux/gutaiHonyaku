@@ -23,7 +23,6 @@ export default function AdjustChat({
   const [instruction, setInstruction] = useState('');
   const [history, setHistory]         = useState([]);
   const [isAdjusting, setIsAdjusting] = useState(false);
-  const [error, setError]             = useState('');
   const historyEndRef                 = useRef(null);
 
   // Auto-scroll the history list when new messages arrive
@@ -37,7 +36,6 @@ export default function AdjustChat({
     const userInstruction = instruction.trim();
     setInstruction('');
     setIsAdjusting(true);
-    setError('');
 
     setHistory(prev => [...prev, { role: 'user', content: userInstruction }]);
 
@@ -81,7 +79,6 @@ export default function AdjustChat({
         ? '⚠️ Local server offline – make sure LM Studio or Ollama is running.'
         : `❌ ${detail}`;
 
-      setError(msg);
       setHistory(prev => [...prev, { role: 'error', content: msg }]);
     } finally {
       setIsAdjusting(false);

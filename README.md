@@ -4,7 +4,7 @@
 
 ![gutaiHonyaku main interface](https://github.com/user-attachments/assets/9b6ae7dd-32e1-4e4c-b42f-60d2d0c78097)
 
-Type (or paste) source text into a single document workspace, click **Translate**, and the translation appears side-by-side. Hover over any word to see which word(s) it maps to in the other panel. Double-click a word to edit it inline. Use the **Adjust Translation** chat bar to give free-form instructions such as *"make it more formal"* or *"translate 'book' as 本 not 書物"*.
+Type (or paste) source text into a single document workspace, click **Translate**, and the translation appears side-by-side. Hover over any word to see which word(s) it maps to in the other panel. Double-click a word to edit it inline. Use the **Adjust Translation** chat bar to give free-form instructions such as *"make it more formal"* or *"translate 'book' as 本 not 書物"*. A dedicated **LLM Reasoning** panel shows the model's latest explanation of its translation choices.
 
 ## Table of Contents
 
@@ -69,6 +69,7 @@ Type (or paste) source text into a single document workspace, click **Translate*
 | **Word-level alignment** | Hover a word on either side to highlight the aligned word(s) on the other side |
 | **Inline word editing** | Double-click any word in source or translation to replace it |
 | **Adjust Translation chat** | Document-level chat panel: type an instruction and the LLM updates the translation |
+| **LLM reasoning panel** | Dedicated space that shows the model's latest explanation for the current translation |
 | **Furigana (振り仮名)** | Automatic ruby annotations for Japanese kanji, showing hiragana readings above characters |
 | **Local LLM** | Works with [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com) – no data leaves your machine |
 
@@ -301,9 +302,9 @@ Use the **Adjust Translation** chat to give the LLM free-form instructions to re
    - *"use passive voice in the second paragraph"*
 3. Press **Enter** or click the send button.
 4. The LLM returns:
-   - A new translation
-   - A brief explanation of what changed
-   - Updated word alignment pairs
+    - A new translation
+    - A brief reasoning summary of what changed
+    - Updated word alignment pairs
 
 The chat history is maintained for the current document, so you can iteratively refine translations.
 

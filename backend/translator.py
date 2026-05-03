@@ -34,8 +34,26 @@ ADJUST_SYSTEM = (
 _JAPANESE = "japanese"
 
 
-def _chat(client: OpenAI, model: str, system: str, user: str) -> str:
-    """Send a single-turn chat request and return the assistant text."""
+def _extract_reasoning_text(value) -> str:
+    """Normalise provider-specific reasoning payloads into plain text."""
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        parts = [_extract_reasoning_text(item) for item in value]
+        return "\n".join(part for part in parts if part)
+    if isinstance(value, dict):
+        for key in ("text", "content", "reasoning", "reasoning_content"):
+            extracted = _extract_reasoning_text(value.get(key))
+            if extracted:
+                return extracted
+        return ""
+    return str(value).strip()
+
+
+def _chat(client: OpenAI, model: str, system: str, user: str) -> tuple[str, str]:
+    """Send a single-turn chat request and return assistant text and reasoning."""
     logger.debug(
         "LLM request → model=%s, system_prompt length=%d, user_prompt length=%d",
         model,
@@ -50,14 +68,21 @@ def _chat(client: OpenAI, model: str, system: str, user: str) -> str:
         ],
         temperature=0.3,
     )
-    content = response.choices[0].message.content or ""
+    message = response.choices[0].message
+    content = message.content or ""
+    reasoning = _extract_reasoning_text(getattr(message, "reasoning_content", None))
+    if not reasoning:
+        reasoning = _extract_reasoning_text(getattr(message, "reasoning", None))
+    if not reasoning:
+        reasoning = _extract_reasoning_text(getattr(message, "model_extra", None))
     logger.debug(
-        "LLM response ← model=%s, finish_reason=%s, content length=%d",
+        "LLM response ← model=%s, finish_reason=%s, content length=%d, reasoning length=%d",
         response.model,
         response.choices[0].finish_reason,
         len(content),
+        len(reasoning),
     )
-    return content
+    return content, reasoning
 
 
 def extract_json(text: str) -> dict:
@@ -108,6 +133,7 @@ def translate_text(
     Returns:
         {
             "translation": str,
+            "reasoning": str,
             "pairs": [{"src": str, "tgt": str}, ...]
         }
     """
@@ -118,6 +144,7 @@ def translate_text(
         "Return ONLY a JSON object in exactly this format:\n"
         "{\n"
         '  "translation": "<complete translation here>",\n'
+        '  "reasoning": "<brief explanation of key translation choices>",\n'
         '  "pairs": [\n'
         '    {"src": "<source word or short phrase>", "tgt": "<corresponding target word or phrase>"},\n'
         "    ...\n"
@@ -127,17 +154,20 @@ def translate_text(
         "- List pairs in source text order\n"
         "- Include all significant content words (skip pure punctuation)\n"
         "- Each pair maps one source word/phrase to its target equivalent\n"
+        "- Keep reasoning concise and focused on notable choices\n"
         "- Return only valid JSON, nothing else"
     )
 
-    raw = _chat(client, model, TRANSLATE_SYSTEM, user_prompt)
+    raw, provider_reasoning = _chat(client, model, TRANSLATE_SYSTEM, user_prompt)
     logger.debug("Raw translation response: %s", raw[:500])
 
     parsed = extract_json(raw)
 
     translation = parsed.get("translation", "")
+    reasoning = parsed.get("reasoning", "") or provider_reasoning
     result: dict = {
         "translation": translation,
+        "reasoning": reasoning,
         "pairs": parsed.get("pairs", []),
     }
 
@@ -165,6 +195,7 @@ def adjust_translation(
     Returns:
         {
             "translation": str,
+            "reasoning": str,
             "explanation": str,
             "pairs": [{"src": str, "tgt": str}, ...]
         }
@@ -179,7 +210,7 @@ def adjust_translation(
         "Return ONLY a JSON object in exactly this format:\n"
         "{\n"
         '  "translation": "<adjusted translation>",\n'
-        '  "explanation": "<brief explanation of what was changed and why>",\n'
+        '  "reasoning": "<brief explanation of what was changed and why>",\n'
         '  "pairs": [\n'
         '    {"src": "<source word>", "tgt": "<adjusted target word>"},\n'
         "    ...\n"
@@ -188,15 +219,17 @@ def adjust_translation(
         "Return only valid JSON, nothing else."
     )
 
-    raw = _chat(client, model, ADJUST_SYSTEM, user_prompt)
+    raw, provider_reasoning = _chat(client, model, ADJUST_SYSTEM, user_prompt)
     logger.debug("Raw adjust response: %s", raw[:500])
 
     parsed = extract_json(raw)
 
     translation = parsed.get("translation", "")
+    reasoning = parsed.get("reasoning", "") or parsed.get("explanation", "") or provider_reasoning
     result: dict = {
         "translation": translation,
-        "explanation": parsed.get("explanation", ""),
+        "reasoning": reasoning,
+        "explanation": reasoning,
         "pairs": parsed.get("pairs", []),
     }
 

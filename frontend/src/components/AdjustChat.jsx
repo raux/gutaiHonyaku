@@ -3,7 +3,7 @@
  *
  * The user types an adjustment instruction (e.g. "make it more formal",
  * "translate 'cat' as 猫 instead of ネコ") and receives an updated translation
- * together with a brief explanation of the changes made.
+ * together with the model's reasoning about the changes made.
  */
 import { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
@@ -54,10 +54,20 @@ export default function AdjustChat({
 
       setHistory(prev => [
         ...prev,
-        { role: 'assistant', content: result.translation, explanation: result.explanation },
+        {
+          role: 'assistant',
+          content: result.translation,
+          reasoning: result.reasoning || result.explanation || '',
+        },
       ]);
 
-      onAdjusted?.(result.translation, result.pairs, result.source_furigana, result.target_furigana);
+      onAdjusted?.(
+        result.translation,
+        result.pairs,
+        result.source_furigana,
+        result.target_furigana,
+        result.reasoning || result.explanation || '',
+      );
     } catch (err) {
       const detail   = err?.response?.data?.detail || err?.message || 'Unknown error';
       const isOffline =
@@ -97,9 +107,9 @@ export default function AdjustChat({
               )}
               {msg.role === 'assistant' && (
                 <div>
-                  {msg.explanation && (
+                  {msg.reasoning && (
                     <div className="text-slate-400 italic mb-0.5">
-                      ↳ {msg.explanation}
+                      ↳ Reasoning: {msg.reasoning}
                     </div>
                   )}
                   <div className="text-green-300 font-mono">{msg.content}</div>

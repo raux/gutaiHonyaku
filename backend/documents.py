@@ -10,6 +10,7 @@ import tempfile
 import uuid
 
 from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024
 MAX_PDF_PAGES = 40
@@ -42,7 +43,7 @@ def _chunk_paragraph(paragraph: str, max_chars: int = MAX_BLOCK_CHARS) -> list[s
             current = sentence
             continue
         for idx in range(0, len(sentence), max_chars):
-            chunks.append(sentence[idx: idx + max_chars].strip())
+            chunks.append(sentence[idx:idx + max_chars].strip())
         current = ""
 
     if current:
@@ -68,7 +69,7 @@ class DocumentStore:
     """Minimal in-memory document state backed by temporary PDF files."""
 
     def __init__(self, root_dir: Path | None = None):
-        base_dir = root_dir or Path(tempfile.gettempdir()) / "gutaiHonyaku-documents"
+        base_dir = root_dir or Path(tempfile.gettempdir()) / "gutaiHonyaku_documents"
         self.root_dir = Path(base_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
         self._documents: dict[str, dict] = {}
@@ -89,7 +90,7 @@ class DocumentStore:
 
         try:
             reader = PdfReader(BytesIO(payload))
-        except Exception as exc:  # pragma: no cover - exercised via API tests
+        except PdfReadError as exc:
             raise ValueError("Could not parse the uploaded PDF.") from exc
 
         if len(reader.pages) > MAX_PDF_PAGES:

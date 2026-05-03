@@ -463,7 +463,7 @@ async def adjust_document_block(document_id: str, block_id: str, req: DocumentAd
                 {
                     **block,
                     "translation": result["translation"],
-                    "reasoning": result.get("reasoning", result.get("explanation", "")),
+                    "reasoning": result.get("reasoning", ""),
                     "pairs": result.get("pairs", []),
                     "source_furigana": result.get("source_furigana"),
                     "target_furigana": result.get("target_furigana"),

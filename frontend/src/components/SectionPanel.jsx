@@ -15,6 +15,7 @@ import WordDisplay, {
 import AdjustChat from './AdjustChat.jsx';
 import {
   adjustDocumentBlock,
+  adjustTranslation,
   translateDocument,
   translateText,
   uploadPdfDocument,
@@ -27,7 +28,7 @@ import {
 
 
 const EMPTY_ALIGNMENT = { srcToTgt: {}, tgtToSrc: {} };
-const noop = () => {};
+const noopEditHandler = () => {};
 
 export default function SectionPanel({
   documentName = 'Document',
@@ -165,21 +166,26 @@ export default function SectionPanel({
     setEditValue('');
   };
 
-  const handleTextAdjusted = (
-    newTranslation,
-    newPairs,
-    newSrcFurigana,
-    newTgtFurigana,
-    newReasoning = '',
-  ) => {
-    const usedPairs = newPairs?.length ? newPairs : pairs;
-    setTgtText(newTranslation);
-    setReasoning(newReasoning);
+  const handleTextAdjust = useCallback(async (instruction) => {
+    const result = await adjustTranslation(
+      srcText,
+      tgtText,
+      instruction,
+      srcLang,
+      tgtLang,
+      lmConfig.lmStudioUrl || null,
+      lmConfig.model || null,
+      lmConfig.provider || null,
+    );
+    const usedPairs = result.pairs?.length ? result.pairs : pairs;
+    setTgtText(result.translation);
+    setReasoning(result.reasoning || result.explanation || '');
     setPairs(usedPairs);
-    setAlignment(buildAlignment(srcText, newTranslation, usedPairs));
-    if (newSrcFurigana) setSrcFurigana(newSrcFurigana);
-    if (newTgtFurigana) setTgtFurigana(newTgtFurigana);
-  };
+    setAlignment(buildAlignment(srcText, result.translation, usedPairs));
+    if (result.source_furigana) setSrcFurigana(result.source_furigana);
+    if (result.target_furigana) setTgtFurigana(result.target_furigana);
+    return result;
+  }, [srcText, tgtText, srcLang, tgtLang, lmConfig, pairs]);
 
   // ── PDF handlers ─────────────────────────────────────────────────────────
 
@@ -344,14 +350,12 @@ export default function SectionPanel({
 
         {showChat && (
           <AdjustChat
-            documentName={sourceType === 'pdf' ? 'selected PDF block' : documentName}
-            original={sourceType === 'pdf' ? selectedPdfSourceBlock?.text || '' : srcText}
-            translation={sourceType === 'pdf' ? selectedPdfTranslatedBlock?.translation || '' : tgtText}
-            srcLang={srcLang}
-            tgtLang={tgtLang}
-            lmConfig={lmConfig}
-            onAdjusted={sourceType === 'pdf' ? undefined : handleTextAdjusted}
-            onRequestAdjust={sourceType === 'pdf' ? handlePdfAdjust : undefined}
+            documentName={
+              sourceType === 'pdf'
+                ? `${pdfDocument?.filename || 'PDF'} · ${selectedPdfBlockId || 'block'}`
+                : documentName
+            }
+            onRequestAdjust={sourceType === 'pdf' ? handlePdfAdjust : handleTextAdjust}
             disabled={sourceType === 'pdf' ? !selectedPdfTranslatedBlock : !tgtText}
           />
         )}
@@ -517,7 +521,7 @@ export default function SectionPanel({
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-full p-6 text-center text-sm text-slate-500">
-                  Upload a PDF to extract text, keep page references, and translate by linked blocks.
+                  Upload a PDF to extract text, maintain page references, and translate by linked blocks.
                 </div>
               )
             )}
@@ -606,7 +610,7 @@ export default function SectionPanel({
                           alignment={pdfAlignment}
                           externalHoveredIdx={hoveredTgtIdx}
                           onHoverWord={setHoveredSrcIdx}
-                          onEditWord={noop}
+                          onEditWord={noopEditHandler}
                           placeholder="Select a PDF block to inspect its extracted source text…"
                           furigana={selectedPdfTranslatedBlock?.source_furigana || null}
                         />
@@ -624,7 +628,7 @@ export default function SectionPanel({
                           alignment={pdfAlignment}
                           externalHoveredIdx={hoveredSrcIdx}
                           onHoverWord={setHoveredTgtIdx}
-                          onEditWord={noop}
+                          onEditWord={noopEditHandler}
                           placeholder="Translate the PDF to inspect block-level alignment and page links…"
                           furigana={selectedPdfTranslatedBlock?.target_furigana || null}
                         />

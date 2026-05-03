@@ -21,6 +21,7 @@ Type (or paste) source text into a single document workspace, or upload a PDF to
   - [Editing words](#editing-words)
   - [Adjusting translations](#adjusting-translations)
 - [Running Tests](#running-tests)
+- [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
 - [Production Build](#production-build)
 - [Troubleshooting](#troubleshooting)
@@ -348,7 +349,54 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-The backend test suite currently includes 25 tests covering provider URL helpers, `extract_json`, `translate_text`, `adjust_translation`, and `generate_furigana` with mock LLM clients.
+Frontend checks are available separately:
+
+```bash
+cd frontend
+npm install
+npm run lint
+npm test
+npm run build
+```
+
+The test suite covers backend provider URL helpers, document upload/storage behavior, translation and adjustment helpers, furigana generation, and frontend document-link utilities.
+
+---
+
+## Architecture Overview
+
+gutaiHonyaku is a **single-server application**: a FastAPI backend exposes the translation APIs and, when `frontend/dist/` exists, also serves the built React/Vite frontend.
+
+### High-level layers
+
+1. **React frontend**
+   - `App.jsx` owns the top-level shell: header, provider/model bar, language selection, and the document workspace.
+   - `SectionPanel.jsx` manages the main workflows for plain-text translation and PDF translation.
+   - Supporting components such as `LmStudioConfig`, `AdjustChat`, and `WordDisplay` handle provider connectivity, refinement prompts, and word-level alignment display.
+   - `api.js` is the browser-side gateway to the backend, and `documentLinks.js` keeps PDF blocks and translated blocks synchronized in the UI.
+
+2. **FastAPI backend**
+   - `backend/main.py` defines the HTTP API for health checks, provider checks, plain-text translation, PDF upload, PDF translation, block adjustment, furigana generation, and static frontend serving.
+   - The backend normalizes LM Studio / Ollama URLs, resolves available models, and translates frontend requests into OpenAI-compatible client calls.
+
+3. **Translation and document services**
+   - `backend/translator.py` contains the LLM-facing translation, adjustment, JSON extraction, alignment, and furigana logic.
+   - `backend/documents.py` handles PDF ingestion, text extraction, block chunking, temporary file storage, and in-memory document state for uploaded PDFs.
+
+### Request flow
+
+- **Plain text**
+  1. The frontend sends `/translate` or `/adjust`.
+  2. FastAPI creates an OpenAI-compatible client for LM Studio or Ollama.
+  3. `translator.py` returns the translation, reasoning, alignment pairs, and optional furigana.
+  4. The frontend renders the aligned source/target text and exposes inline editing and follow-up adjustments.
+
+- **PDF workflow**
+  1. The frontend uploads a PDF to `/documents/upload`.
+  2. `DocumentStore` extracts text per page, splits pages into blocks, and persists the uploaded PDF in a temporary directory.
+  3. The frontend requests `/documents/{document_id}/translate` to translate each block.
+  4. The backend rebuilds a document-level payload with page mappings so the UI can link PDF pages, extracted text blocks, and translated blocks.
+  5. Follow-up refinement calls use `/documents/{document_id}/blocks/{block_id}/adjust` to update only the selected translated block.
 
 ---
 
@@ -357,27 +405,32 @@ The backend test suite currently includes 25 tests covering provider URL helpers
 ```
 gutaiHonyaku/
 ├── backend/
-│   ├── main.py           # FastAPI app – /translate, /adjust, /furigana, /health, /status
-│   ├── translator.py     # LLM chat wrapper + word-alignment JSON extraction + furigana generation
+│   ├── main.py           # FastAPI app, provider helpers, document routes, and frontend static serving
+│   ├── documents.py      # PDF ingestion, block chunking, and in-memory document storage
+│   ├── translator.py     # LLM translation, adjustment, alignment extraction, and furigana generation
 │   ├── requirements.txt
-│   └── .env              # Server URL / model config (safe to commit as template)
+│   └── .env              # Optional server URL / model config template
 ├── frontend/
 │   ├── index.html        # Vite HTML entry point
 │   ├── src/
 │   │   ├── main.jsx                       # React entry point
 │   │   ├── index.css                      # Global styles (Tailwind directives)
-│   │   ├── App.jsx                        # Root layout – connection bar, language bar, single document workspace
-│   │   ├── api.js                         # Axios client + LM Studio/Ollama helpers
+│   │   ├── App.jsx                        # Root layout for the unified translation workspace
+│   │   ├── api.js                         # HTTP client for backend routes
+│   │   ├── documentLinks.js               # PDF/source/translation linking helpers
 │   │   └── components/
-│   │       ├── LmStudioConfig.jsx         # Provider/URL/model connection bar
-│   │       ├── SectionPanel.jsx           # Source ↔ Translation split view + word-edit modal
-│   │       ├── WordDisplay.jsx            # Interactive word spans + alignment + furigana display
-│   │       └── AdjustChat.jsx             # Document adjustment chat
+│   │       ├── LmStudioConfig.jsx         # Provider, URL, and model connection bar
+│   │       ├── SectionPanel.jsx           # Plain-text and PDF translation workflows
+│   │       ├── WordDisplay.jsx            # Word token rendering, alignment hover, and editing support
+│   │       └── AdjustChat.jsx             # Translation refinement chat panel
+│   ├── tests/
+│   │   └── documentLinks.test.js          # Frontend unit tests for PDF/document linking helpers
 │   ├── package.json
 │   ├── tailwind.config.js
 │   ├── postcss.config.js
-│   └── vite.config.js    # Proxies API calls in dev mode; build outputs to dist/
+│   └── vite.config.js    # Dev proxy and build output config
 ├── tests/
+│   ├── test_documents.py    # PDF ingestion and document storage tests
 │   ├── test_main.py         # Backend route and provider URL helper tests
 │   └── test_translator.py   # Translator and furigana unit tests
 ├── run_all.sh            # One-command install + build (backend + frontend)

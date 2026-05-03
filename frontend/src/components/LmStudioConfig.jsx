@@ -55,8 +55,8 @@ export default function LmStudioConfig({ onConfigChange }) {
     }
   }, []);
 
-  const populateModels = useCallback(async (baseUrl) => {
-    const list = await fetchModels(baseUrl);
+  const populateModels = useCallback(async (baseUrl, activeProvider = provider) => {
+    const list = await fetchModels(baseUrl, activeProvider);
     setModels(list);
 
     if (list.length === 0) return;
@@ -66,9 +66,9 @@ export default function LmStudioConfig({ onConfigChange }) {
 
     setModel(chosen);
     localStorage.setItem(LS_MODEL_KEY, chosen);
-  }, []);
+  }, [provider]);
 
-  const doHealthCheck = useCallback(async (baseUrl) => {
+  const doHealthCheck = useCallback(async (baseUrl, activeProvider = provider) => {
     try {
       new URL(baseUrl.startsWith('http') ? baseUrl : `http://${baseUrl}`);
     } catch {
@@ -77,7 +77,7 @@ export default function LmStudioConfig({ onConfigChange }) {
       return false;
     }
 
-    const ok = await pingServer(baseUrl);
+    const ok = await pingServer(baseUrl, activeProvider);
     if (ok) {
       setStatus('connected');
       showMessage('');
@@ -85,7 +85,7 @@ export default function LmStudioConfig({ onConfigChange }) {
       setStatus('disconnected');
     }
     return ok;
-  }, [showMessage]);
+  }, [provider, showMessage]);
 
   // -------------------------------------------------------------------------
   // Initial connection + polling
@@ -95,9 +95,9 @@ export default function LmStudioConfig({ onConfigChange }) {
 
     const init = async () => {
       setStatus('connecting');
-      const ok = await doHealthCheck(urlRef.current);
+      const ok = await doHealthCheck(urlRef.current, provider);
       if (!cancelled && ok) {
-        await populateModels(urlRef.current);
+        await populateModels(urlRef.current, provider);
         prevConnected.current = true;
       } else {
         prevConnected.current = false;
@@ -107,9 +107,9 @@ export default function LmStudioConfig({ onConfigChange }) {
 
     pollRef.current = setInterval(async () => {
       const wasConnected = prevConnected.current;
-      const ok = await doHealthCheck(urlRef.current);
+      const ok = await doHealthCheck(urlRef.current, provider);
       if (ok && !wasConnected) {
-        await populateModels(urlRef.current);
+        await populateModels(urlRef.current, provider);
       }
       prevConnected.current = ok;
     }, POLL_MS);
@@ -118,7 +118,7 @@ export default function LmStudioConfig({ onConfigChange }) {
       cancelled = true;
       clearInterval(pollRef.current);
     };
-  }, [doHealthCheck, populateModels]);
+  }, [doHealthCheck, populateModels, provider]);
 
   // Notify parent whenever url, model, or provider changes
   useEffect(() => {
@@ -163,9 +163,9 @@ export default function LmStudioConfig({ onConfigChange }) {
   const handleConnect = async () => {
     setStatus('connecting');
     showMessage('');
-    const ok = await doHealthCheck(url);
+    const ok = await doHealthCheck(url, provider);
     if (ok) {
-      await populateModels(url);
+      await populateModels(url, provider);
       showMessage(
         `Successfully connected to ${PROVIDER_LABELS[provider] || provider}!`,
         'success',

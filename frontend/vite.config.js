@@ -10,6 +10,8 @@ export default defineConfig({
       '/adjust':    'http://localhost:8000',
       '/furigana':  'http://localhost:8000',
       '/health':    'http://localhost:8000',
+      '/models':    'http://localhost:8000',
+      '/provider-health': 'http://localhost:8000',
       '/status':    'http://localhost:8000',
     },
   },
